@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>orb preview</title>
+<style>
+html, body { margin: 0; padding: 0; background: #eee; }
+main {
+  width: 104px;
+  height: 104px;
+  display: grid;
+  place-items: center;
+  background: white;
+  margin: 0;
+}
+.btn {
+  width: 92px;
+  height: 92px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  cursor: grab;
+  padding: 0;
+  touch-action: none;
+  filter: drop-shadow(0 5px 14px rgba(44,139,224,0.22)) drop-shadow(0 1px 3px rgba(0,0,0,0.08));
+}
+svg {
+  display: block;
+  shape-rendering: geometricPrecision;
+}
+</style>
+</head>
+<body>
+<main>
+<div class="btn">
+  <svg viewBox="0 0 100 100" width="72" height="72" aria-hidden="true">
+    <defs>
+      <clipPath id="orbClip">
+        <circle cx="50" cy="50" r="49" />
+      </clipPath>
+      <linearGradient id="liquidGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#6cb4e8" />
+        <stop offset="60%" stop-color="#2c8be0" />
+        <stop offset="100%" stop-color="#1c6fc7" />
+      </linearGradient>
+      <radialGradient id="shineGrad" cx="30%" cy="22%" r="55%">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.72)" />
+        <stop offset="45%" stop-color="rgba(255,255,255,0.1)" />
+        <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+      </radialGradient>
+    </defs>
+
+    <!-- level = 79% => liquidY = 21 -->
+    <g clipPath="url(#orbClip)">
+      <rect x="0" y="21" width="100" height="79" fill="url(#liquidGrad)" />
+      <path d="M 0 21 Q 12.5 18.5 25 21 T 50 21 T 75 21 T 100 21 L 100 25 L 0 25 Z" fill="rgba(255,255,255,0.35)">
+        <animate attributeName="d"
+          values="M 0 21 Q 12.5 18.5 25 21 T 50 21 T 75 21 T 100 21 L 100 25 L 0 25 Z;
+                  M 0 21 Q 12.5 23.5 25 21 T 50 21 T 75 21 T 100 21 L 100 25 L 0 25 Z;
+                  M 0 21 Q 12.5 18.5 25 21 T 50 21 T 75 21 T 100 21 L 100 25 L 0 25 Z"
+          dur="3.2s" repeatCount="indefinite" />
+      </path>
+      <path d="M 0 22.5 Q 16 21.5 32 22.5 T 64 22.5 T 100 22.5 L 100 27.5 L 0 27.5 Z" fill="rgba(255,255,255,0.22)">
+        <animate attributeName="d"
+          values="M 0 22.5 Q 16 21.5 32 22.5 T 64 22.5 T 100 22.5 L 100 27.5 L 0 27.5 Z;
+                  M 0 22.5 Q 16 26 32 22.5 T 64 22.5 T 100 22.5 L 100 27.5 L 0 27.5 Z;
+                  M 0 22.5 Q 16 21.5 32 22.5 T 64 22.5 T 100 22.5 L 100 27.5 L 0 27.5 Z"
+          dur="4.4s" repeatCount="indefinite" />
+      </path>
+      <circle cx="30" cy="88" r="1.8" fill="rgba(255,255,255,0.65)">
+        <animate attributeName="cy" values="88;68;88" dur="4.6s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="44" cy="92" r="1.2" fill="rgba(255,255,255,0.45)">
+        <animate attributeName="cy" values="92;72;92" dur="3.8s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="56" cy="90" r="1" fill="rgba(255,255,255,0.4)">
+        <animate attributeName="cy" values="90;74;90" dur="5.2s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+
+    <circle cx="50" cy="50" r="49" fill="url(#shineGrad)" />
+    <circle cx="50" cy="50" r="48.5" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
+
+    <text x="50" y="50" textAnchor="middle" dominantBaseline="central"
+      fontSize="20" fontWeight="700" fill="#ffffff"
+      style="font-family: system-ui,-apple-system,Segoe UI,sans-serif; letter-spacing: -0.02em;"
+      stroke="rgba(0,40,80,0.15)" strokeWidth="0.3">79%</text>
+  </svg>
+</div>
+</main>
+</body>
+</html>

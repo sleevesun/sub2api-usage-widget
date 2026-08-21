@@ -1,0 +1,1588 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sub2API · Apple Utility v2</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --page: #f4f5f4;
+        --page-glow: rgba(139, 201, 214, 0.16);
+        --surface: #ffffff;
+        --surface-soft: #f6f8f7;
+        --surface-raised: #fbfcfb;
+        --text: #1d1d1f;
+        --muted: #6e7176;
+        --faint: #a0a3a7;
+        --line: rgba(30, 33, 35, 0.08);
+        --line-strong: rgba(30, 33, 35, 0.14);
+        --water: #8acbd5;
+        --water-deep: #54aebd;
+        --water-glow: rgba(91, 189, 204, 0.3);
+        --signal: #ec6c4c;
+        --signal-soft: rgba(236, 108, 76, 0.1);
+        --ok: #4ca876;
+        --ok-soft: rgba(76, 168, 118, 0.12);
+        --insight: #5b8def;
+        --insight-soft: rgba(91, 141, 239, 0.08);
+        --shadow: 0 18px 50px rgba(32, 53, 56, 0.1), 0 2px 6px rgba(32, 53, 56, 0.05);
+        --orb-shadow: 0 20px 48px rgba(74, 173, 187, 0.18), inset 0 1px 2px rgba(255, 255, 255, 0.85), inset 0 -14px 22px rgba(52, 142, 158, 0.1);
+        --ease: cubic-bezier(0.22, 0.8, 0.26, 1);
+        --radius: 14px;
+        --radius-sm: 10px;
+      }
+
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --page: #0f1112;
+        --page-glow: rgba(74, 159, 178, 0.1);
+        --surface: #1a1d1f;
+        --surface-soft: #151718;
+        --surface-raised: #202326;
+        --text: #f5f5f6;
+        --muted: #9ea1a5;
+        --faint: #6a6d71;
+        --line: rgba(255, 255, 255, 0.08);
+        --line-strong: rgba(255, 255, 255, 0.14);
+        --water: #6fb9c8;
+        --water-deep: #3b8f9f;
+        --water-glow: rgba(82, 178, 196, 0.22);
+        --signal: #f27b5b;
+        --signal-soft: rgba(242, 123, 91, 0.12);
+        --ok: #6ac18c;
+        --ok-soft: rgba(106, 193, 140, 0.12);
+        --insight: #7ba4f5;
+        --insight-soft: rgba(123, 164, 245, 0.1);
+        --shadow: 0 20px 56px rgba(0, 0, 0, 0.36), 0 2px 8px rgba(0, 0, 0, 0.2);
+        --orb-shadow: 0 22px 54px rgba(43, 138, 154, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.16), inset 0 -14px 22px rgba(11, 51, 58, 0.24);
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html { background: var(--page); }
+
+      body {
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 40px 24px;
+        background:
+          radial-gradient(circle at 50% 0%, var(--page-glow), transparent 32rem),
+          var(--page);
+        color: var(--text);
+        font-family: "Geist Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        font-size: 13px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        transition: background 320ms var(--ease), color 220ms var(--ease);
+      }
+
+      button {
+        font: inherit;
+        color: inherit;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+      }
+
+      input {
+        font: inherit;
+        color: inherit;
+      }
+
+      /* ===== 主面板 420 x 640 ===== */
+      .panel {
+        position: relative;
+        width: 420px;
+        height: 640px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-radius: 18px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--line-strong);
+      }
+
+      /* Header */
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--line);
+        flex-shrink: 0;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+
+      .brand-dot {
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        background: linear-gradient(135deg, var(--water), var(--water-deep));
+        box-shadow: 0 2px 6px var(--water-glow);
+      }
+
+      .brand-name {
+        font-size: 13px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+
+      .brand-sub {
+        color: var(--faint);
+        font-size: 10px;
+        font-weight: 500;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .icon-btn {
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        color: var(--muted);
+        font-size: 15px;
+        transition: background 160ms var(--ease), color 160ms var(--ease);
+      }
+
+      .icon-btn:hover {
+        background: var(--surface-soft);
+        color: var(--text);
+      }
+
+      .icon-btn.spinning {
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+
+      .theme-toggle {
+        display: flex;
+        gap: 2px;
+        padding: 3px;
+        border-radius: 9px;
+        background: var(--surface-soft);
+        border: 1px solid var(--line);
+      }
+
+      .theme-toggle button {
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--muted);
+        transition: background 160ms var(--ease), color 160ms var(--ease);
+      }
+
+      .theme-toggle button[aria-pressed="true"] {
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      }
+
+      /* ===== Liquid Orb（修复居中） ===== */
+      .liquid-orb {
+        --level: 84;
+        --orb-size: 140px;
+        position: relative;
+        width: var(--orb-size);
+        height: var(--orb-size);
+        overflow: hidden;
+        border-radius: 50%;
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.4), rgba(198, 231, 235, 0.2));
+        box-shadow: var(--orb-shadow);
+        isolation: isolate;
+      }
+
+      .liquid-orb::before {
+        content: "";
+        position: absolute;
+        z-index: 3;
+        inset: 0;
+        border-radius: inherit;
+        box-shadow: inset 0 0 0 5px rgba(255, 255, 255, 0.04), inset 0 0 20px rgba(255, 255, 255, 0.2);
+        pointer-events: none;
+      }
+
+      .liquid-orb::after {
+        content: "";
+        position: absolute;
+        z-index: 4;
+        top: 10%;
+        left: 20%;
+        width: 32%;
+        height: 18%;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.5);
+        filter: blur(1px);
+        transform: rotate(-22deg);
+        pointer-events: none;
+      }
+
+      .orb-water {
+        position: absolute;
+        z-index: 1;
+        right: -8%;
+        bottom: calc((var(--level) - 100) * 1%);
+        left: -8%;
+        height: 115%;
+        background: linear-gradient(180deg, var(--water), var(--water-deep));
+        box-shadow: 0 -5px 14px var(--water-glow);
+        transition: bottom 600ms var(--ease), background 260ms var(--ease);
+      }
+
+      .orb-water::before,
+      .orb-water::after {
+        content: "";
+        position: absolute;
+        top: -7px;
+        left: -4%;
+        width: 108%;
+        height: 16px;
+        border-radius: 50%;
+        background: rgba(214, 248, 249, 0.7);
+        filter: blur(0.3px);
+      }
+
+      .orb-water::after {
+        top: -3px;
+        left: -16%;
+        width: 123%;
+        opacity: 0.5;
+        transform: rotate(2deg);
+      }
+
+      /* orb-content 用 flex 强制居中 */
+      .orb-content {
+        position: absolute;
+        z-index: 5;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        pointer-events: none;
+      }
+
+      .orb-content strong {
+        color: #fff;
+        font-size: 34px;
+        font-weight: 720;
+        letter-spacing: -0.06em;
+        line-height: 1;
+        text-shadow: 0 2px 10px rgba(24, 93, 104, 0.24);
+      }
+
+      .orb-content span {
+        color: rgba(255, 255, 255, 0.82);
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        margin-top: 4px;
+      }
+
+      .orb-low .orb-water {
+        background: linear-gradient(180deg, #e9ae62, #cb753e);
+      }
+
+      /* ===== 内容区滚动 ===== */
+      .content-scroll {
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
+      }
+
+      .content-scroll::-webkit-scrollbar {
+        width: 4px;
+      }
+
+      .content-scroll::-webkit-scrollbar-thumb {
+        background: var(--line-strong);
+        border-radius: 2px;
+      }
+
+      /* Hero */
+      .hero {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 24px 12px;
+        flex-shrink: 0;
+      }
+
+      .hero-caption {
+        text-align: center;
+      }
+
+      .hero-remaining {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+      }
+
+      .hero-remaining .currency {
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .hero-label {
+        color: var(--muted);
+        font-size: 10px;
+        margin-top: 2px;
+      }
+
+      .hero-label .status-dot {
+        display: inline-block;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--ok);
+        margin-right: 5px;
+        vertical-align: middle;
+        box-shadow: 0 0 0 3px var(--ok-soft);
+      }
+
+      /* Section */
+      .section {
+        padding: 12px 16px 0;
+        flex-shrink: 0;
+      }
+
+      .section + .section {
+        padding-top: 12px;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+
+      .section-title {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--faint);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .section-action {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--muted);
+        text-decoration: none;
+      }
+
+      /* Today 摘要 */
+      .today-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        background: var(--line);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+      }
+
+      .today-cell {
+        background: var(--surface-raised);
+        padding: 10px 12px;
+      }
+
+      .today-cell strong {
+        display: block;
+        font-size: 15px;
+        font-weight: 680;
+        letter-spacing: -0.02em;
+      }
+
+      .today-cell span {
+        display: block;
+        margin-top: 2px;
+        color: var(--faint);
+        font-size: 9px;
+        font-weight: 600;
+      }
+
+      /* ===== 雷达推荐（站长推荐） ===== */
+      .insight-list {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+
+      .insight-card {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 10px 12px;
+        border-radius: var(--radius-sm);
+        background: var(--insight-soft);
+        border: 1px solid var(--line);
+        transition: border-color 160ms var(--ease), background 160ms var(--ease);
+        cursor: pointer;
+      }
+
+      .insight-card:hover {
+        border-color: var(--insight);
+        background: color-mix(in srgb, var(--insight-soft) 50%, var(--surface));
+      }
+
+      .insight-badge {
+        flex-shrink: 0;
+        width: 26px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        font-size: 13px;
+      }
+
+      .insight-badge.power { background: color-mix(in srgb, var(--insight) 14%, transparent); }
+      .insight-badge.daily { background: var(--ok-soft); }
+      .insight-badge.auto { background: var(--signal-soft); }
+
+      .insight-body {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .insight-tag {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--faint);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .insight-name {
+        font-size: 12px;
+        font-weight: 650;
+        margin-top: 1px;
+      }
+
+      .insight-stats {
+        display: flex;
+        gap: 10px;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .insight-stats b {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .insight-arrow {
+        color: var(--faint);
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+
+      /* ===== 趋势 ===== */
+      .trend-mode-control {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 8px;
+      }
+
+      .trend-mode-control button {
+        padding: 4px 10px;
+        border-radius: 7px;
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--muted);
+        background: var(--surface-soft);
+        border: 1px solid var(--line);
+        transition: background 160ms var(--ease), color 160ms var(--ease);
+      }
+
+      .trend-mode-control button.is-selected {
+        background: var(--surface);
+        color: var(--text);
+        border-color: var(--line-strong);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      }
+
+      .trend-bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 3px;
+        height: 40px;
+        padding: 0 2px;
+      }
+
+      .trend-bar-wrap {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 0;
+      }
+
+      .trend-bar {
+        width: 100%;
+        min-height: 2px;
+        border-radius: 3px 3px 1px 1px;
+        background: var(--water);
+        opacity: 0.65;
+        transition: opacity 160ms var(--ease), background 160ms var(--ease);
+      }
+
+      .trend-bar:hover {
+        opacity: 1;
+      }
+
+      .trend-bar.today {
+        background: var(--water-deep);
+        opacity: 1;
+      }
+
+      .trend-bar.future {
+        opacity: 0.2;
+        background: var(--faint);
+      }
+
+      .trend-bar-label {
+        font-size: 8px;
+        color: var(--faint);
+        margin-top: 4px;
+        white-space: nowrap;
+      }
+
+      .trend-foot {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 6px;
+        color: var(--faint);
+        font-size: 9px;
+      }
+
+      /* ===== 模型消费 ===== */
+      .model-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .model-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 11px;
+      }
+
+      .model-name {
+        width: 90px;
+        flex-shrink: 0;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .model-bar-track {
+        flex: 1;
+        height: 6px;
+        border-radius: 3px;
+        background: var(--surface-soft);
+        overflow: hidden;
+      }
+
+      .model-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        background: linear-gradient(90deg, var(--water), var(--water-deep));
+      }
+
+      .model-cost {
+        width: 60px;
+        text-align: right;
+        flex-shrink: 0;
+        font-weight: 650;
+      }
+
+      /* ===== Tabs ===== */
+      .tabs {
+        display: flex;
+        padding: 0 16px;
+        gap: 4px;
+        border-bottom: 1px solid var(--line);
+        flex-shrink: 0;
+      }
+
+      .tabs button {
+        padding: 8px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        transition: color 160ms var(--ease), border-color 160ms var(--ease);
+      }
+
+      .tabs button.is-active {
+        color: var(--text);
+        border-color: var(--water-deep);
+      }
+
+      /* ===== API Key 视图 ===== */
+      .key-detail {
+        padding: 12px 16px;
+      }
+
+      .key-detail-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: var(--radius-sm);
+        background: var(--surface-soft);
+      }
+
+      .key-avatar {
+        width: 36px;
+        height: 36px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--water), var(--water-deep));
+        color: #fff;
+        font-weight: 700;
+        font-size: 16px;
+      }
+
+      .key-info h3 {
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .key-info p {
+        font-size: 10px;
+        color: var(--faint);
+        font-family: monospace;
+      }
+
+      .key-status {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--ok);
+      }
+
+      .key-status::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--ok);
+      }
+
+      .definition-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1px;
+        background: var(--line);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        margin-top: 10px;
+      }
+
+      .definition-grid > div {
+        background: var(--surface-raised);
+        padding: 9px 12px;
+      }
+
+      .definition-grid dt {
+        font-size: 9px;
+        color: var(--faint);
+        font-weight: 600;
+      }
+
+      .definition-grid dd {
+        font-size: 12px;
+        font-weight: 600;
+        margin-top: 2px;
+      }
+
+      /* ===== 设置面板 ===== */
+      .settings-layer {
+        position: absolute;
+        inset: 0;
+        z-index: 30;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+      }
+
+      .settings-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(2px);
+        border: 0;
+        cursor: pointer;
+      }
+
+      .settings-sheet {
+        position: relative;
+        max-height: 88%;
+        overflow-y: auto;
+        background: var(--surface);
+        border-radius: 18px 18px 0 0;
+        padding: 16px 18px 20px;
+        box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.12);
+        animation: slideUp 280ms var(--ease);
+      }
+
+      @keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+
+      .settings-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+
+      .settings-header h2 {
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .settings-header p {
+        font-size: 10px;
+        color: var(--faint);
+        margin-top: 2px;
+      }
+
+      .settings-close {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        color: var(--muted);
+        font-size: 18px;
+      }
+
+      .settings-close:hover {
+        background: var(--surface-soft);
+      }
+
+      .field {
+        display: block;
+        margin-bottom: 14px;
+      }
+
+      .field > span {
+        display: block;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--muted);
+        margin-bottom: 5px;
+        letter-spacing: 0.04em;
+      }
+
+      .field input {
+        width: 100%;
+        padding: 9px 12px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--line-strong);
+        background: var(--surface-raised);
+        font-size: 12px;
+        outline: none;
+        transition: border-color 160ms var(--ease);
+      }
+
+      .field input:focus {
+        border-color: var(--water-deep);
+      }
+
+      .field-hint {
+        display: block;
+        font-size: 9px;
+        color: var(--faint);
+        margin-top: 4px;
+      }
+
+      .secure-input {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .secure-input input {
+        padding-right: 38px;
+      }
+
+      .secure-input button {
+        position: absolute;
+        right: 8px;
+        width: 24px;
+        height: 24px;
+        display: grid;
+        place-items: center;
+        border-radius: 6px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .key-source-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 6px;
+      }
+
+      .key-source {
+        font-size: 10px;
+        color: var(--muted);
+      }
+
+      .key-source.is-configured {
+        color: var(--ok);
+      }
+
+      .inline-command {
+        padding: 4px 10px;
+        border-radius: 7px;
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text);
+        background: var(--surface-soft);
+        border: 1px solid var(--line);
+      }
+
+      .inline-command:hover:not(:disabled) {
+        background: var(--surface-raised);
+      }
+
+      .inline-command:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .interval-control {
+        display: flex;
+        gap: 4px;
+      }
+
+      .interval-control button {
+        flex: 1;
+        padding: 7px;
+        border-radius: 7px;
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--muted);
+        background: var(--surface-soft);
+        border: 1px solid var(--line);
+      }
+
+      .interval-control button.is-selected {
+        background: var(--surface);
+        color: var(--text);
+        border-color: var(--line-strong);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      }
+
+      .setting-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 0;
+      }
+
+      .setting-row strong {
+        display: block;
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .setting-row span {
+        display: block;
+        font-size: 10px;
+        color: var(--muted);
+        margin-top: 1px;
+      }
+
+      .switch {
+        width: 40px;
+        height: 24px;
+        border-radius: 12px;
+        background: var(--line-strong);
+        position: relative;
+        transition: background 200ms var(--ease);
+      }
+
+      .switch.is-on {
+        background: var(--ok);
+      }
+
+      .switch span {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        transition: transform 200ms var(--ease);
+      }
+
+      .switch.is-on span {
+        transform: translateX(16px);
+      }
+
+      .primary-button {
+        width: 100%;
+        padding: 11px;
+        border-radius: var(--radius-sm);
+        font-size: 12px;
+        font-weight: 700;
+        color: #fff;
+        background: linear-gradient(135deg, var(--water-deep), var(--water));
+        margin-top: 6px;
+        transition: opacity 160ms var(--ease);
+      }
+
+      .primary-button:hover {
+        opacity: 0.9;
+      }
+
+      /* ===== Footer ===== */
+      .panel-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 16px;
+        border-top: 1px solid var(--line);
+        color: var(--faint);
+        font-size: 10px;
+        flex-shrink: 0;
+      }
+
+      .footer-left {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .footer-left .status-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--ok);
+        box-shadow: 0 0 0 3px var(--ok-soft);
+      }
+
+      /* ===== 桌面悬浮球 ===== */
+      .floating-orb {
+        position: fixed;
+        top: 80px;
+        right: 40px;
+        width: 72px;
+        height: 72px;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        z-index: 20;
+      }
+
+      .floating-orb .liquid-orb {
+        --orb-size: 72px;
+      }
+
+      .floating-orb .orb-content strong {
+        font-size: 15px;
+      }
+
+      .floating-orb .orb-content span {
+        display: none;
+      }
+
+      .floating-orb::after {
+        content: "";
+        position: absolute;
+        right: -2px;
+        bottom: 0;
+        width: 12px;
+        height: 12px;
+        border: 2.5px solid var(--page);
+        border-radius: 50%;
+        background: var(--ok);
+        box-shadow: 0 0 0 2px var(--ok-soft);
+      }
+
+      /* ===== Loading / Error ===== */
+      .loading-view {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 40px 24px;
+        color: var(--faint);
+        font-size: 11px;
+      }
+
+      .skeleton {
+        border-radius: 6px;
+        background: linear-gradient(90deg, var(--surface-soft) 25%, var(--surface-raised) 50%, var(--surface-soft) 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.4s infinite;
+      }
+
+      @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+
+      .skeleton-title { width: 100px; height: 12px; }
+      .skeleton-value { width: 140px; height: 28px; }
+      .skeleton-line { width: 200px; height: 10px; }
+      .skeleton-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; margin-top: 8px; }
+      .skeleton-grid > div { height: 40px; }
+
+      .error-view {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 40px 24px;
+        text-align: center;
+      }
+
+      .error-view h2 {
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .error-view p {
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .error-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 6px;
+      }
+
+      .error-actions button {
+        padding: 7px 14px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 600;
+        background: var(--surface-soft);
+        border: 1px solid var(--line);
+      }
+
+      .error-actions button:hover {
+        background: var(--surface-raised);
+      }
+
+      .note {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: var(--faint);
+        font-size: 10px;
+        font-weight: 600;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 桌面悬浮球 -->
+    <button class="floating-orb" id="floatOrb" title="点击切换额度演示" aria-label="Sub2API 悬浮球">
+      <span class="liquid-orb" data-orb data-level="84">
+        <i class="orb-water"></i>
+        <span class="orb-content">
+          <strong data-percent>84%</strong>
+        </span>
+      </span>
+    </button>
+
+    <!-- 主面板 -->
+    <div class="panel" id="panel">
+      <header class="panel-header">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <div>
+            <div class="brand-name">Sub2API</div>
+            <div class="brand-sub">usage · Codex</div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <div class="theme-toggle" role="group" aria-label="外观">
+            <button data-theme-choice="system">系统</button>
+            <button data-theme-choice="light" aria-pressed="true">浅</button>
+            <button data-theme-choice="dark">深</button>
+          </div>
+          <button class="icon-btn" id="refreshBtn" title="刷新" aria-label="刷新">↻</button>
+          <button class="icon-btn" id="settingsBtn" title="设置" aria-label="设置">⚙</button>
+        </div>
+      </header>
+
+      <!-- Tabs -->
+      <nav class="tabs" role="tablist">
+        <button class="is-active" data-tab="overview" role="tab">概览</button>
+        <button data-tab="keys" role="tab">API Key</button>
+      </nav>
+
+      <!-- 概览视图 -->
+      <div class="content-scroll" id="overviewView">
+        <!-- Hero -->
+        <section class="hero">
+          <span class="liquid-orb" data-orb data-level="84" id="heroOrb">
+            <i class="orb-water"></i>
+            <span class="orb-content">
+              <strong data-percent>84%</strong>
+              <span>剩余额度</span>
+            </span>
+          </span>
+          <div class="hero-caption">
+            <div class="hero-remaining"><span class="currency">$</span><span data-remaining>84.20</span></div>
+            <div class="hero-label"><span class="status-dot"></span>连接正常 · 约 3 天后刷新</div>
+          </div>
+        </section>
+
+        <!-- Today -->
+        <section class="section">
+          <div class="section-head">
+            <span class="section-title">今日</span>
+            <span class="section-action">Asia/Shanghai</span>
+          </div>
+          <div class="today-row">
+            <div class="today-cell">
+              <strong>$0.135</strong>
+              <span>花费</span>
+            </div>
+            <div class="today-cell">
+              <strong>2</strong>
+              <span>请求</span>
+            </div>
+            <div class="today-cell">
+              <strong>36K</strong>
+              <span>Tokens</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 站长推荐（雷达） -->
+        <section class="section">
+          <div class="section-head">
+            <span class="section-title">站长推荐</span>
+            <a class="section-action" href="https://deng.codexradar.com/" target="_blank" rel="noopener">codexradar ↗</a>
+          </div>
+          <div class="insight-list">
+            <div class="insight-card">
+              <div class="insight-badge power">🔥</div>
+              <div class="insight-body">
+                <div class="insight-tag">难题攻坚</div>
+                <div class="insight-name">GPT-5.6 Luna · max</div>
+                <div class="insight-stats">
+                  <span><b>9/10</b> 通过</span>
+                  <span>IQ <b>135</b></span>
+                  <span><b>$16.3</b> · 4h</span>
+                </div>
+              </div>
+              <span class="insight-arrow">›</span>
+            </div>
+            <div class="insight-card">
+              <div class="insight-badge daily">⚡</div>
+              <div class="insight-body">
+                <div class="insight-tag">日常开发</div>
+                <div class="insight-name">GPT-5.6 Sol · low</div>
+                <div class="insight-stats">
+                  <span><b>8/10</b> 通过</span>
+                  <span>IQ <b>120</b></span>
+                  <span><b>$10.7</b> · 1h</span>
+                </div>
+              </div>
+              <span class="insight-arrow">›</span>
+            </div>
+            <div class="insight-card">
+              <div class="insight-badge auto">🤖</div>
+              <div class="insight-body">
+                <div class="insight-tag">后台自动化</div>
+                <div class="insight-name">GPT-5.6 Terra · medium</div>
+                <div class="insight-stats">
+                  <span><b>7/10</b> 通过</span>
+                  <span>IQ <b>110</b></span>
+                  <span><b>$6.2</b> · 0.5h</span>
+                </div>
+              </div>
+              <span class="insight-arrow">›</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 趋势 -->
+        <section class="section">
+          <div class="section-head">
+            <span class="section-title" data-trend-range>本周消费趋势</span>
+            <span class="section-action" data-trend-total>$0.78</span>
+          </div>
+          <div class="trend-mode-control" role="group" aria-label="统计范围">
+            <button class="is-selected" data-trend-mode="week">本周</button>
+            <button data-trend-mode="days">15 日</button>
+            <button data-trend-mode="weeks">4 周</button>
+          </div>
+          <div class="trend-bars" id="trendBars"></div>
+          <div class="trend-foot">
+            <span data-trend-start>8/14</span>
+            <span data-trend-end>8/20</span>
+          </div>
+        </section>
+
+        <!-- 模型消费 -->
+        <section class="section" style="padding-bottom: 12px;">
+          <div class="section-head">
+            <span class="section-title">模型消费</span>
+            <span class="section-action">按实际费用</span>
+          </div>
+          <div class="model-list">
+            <div class="model-row">
+              <span class="model-name">gpt-5.5</span>
+              <div class="model-bar-track"><div class="model-bar-fill" style="width: 100%"></div></div>
+              <span class="model-cost">$0.633</span>
+            </div>
+            <div class="model-row">
+              <span class="model-name">gpt-5.6-sol</span>
+              <div class="model-bar-track"><div class="model-bar-fill" style="width: 21%"></div></div>
+              <span class="model-cost">$0.135</span>
+            </div>
+            <div class="model-row">
+              <span class="model-name">gpt-5.4-mini</span>
+              <div class="model-bar-track"><div class="model-bar-fill" style="width: 2%"></div></div>
+              <span class="model-cost">$0.010</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- API Key 视图 -->
+      <div class="content-scroll" id="keysView" style="display: none;">
+        <div class="key-detail">
+          <div class="key-detail-header">
+            <div class="key-avatar">S</div>
+            <div class="key-info">
+              <h3>孙骁的 API Key</h3>
+              <p>sk-••••••••••••••••</p>
+            </div>
+            <span class="key-status">有效</span>
+          </div>
+          <div class="definition-grid">
+            <div><dt>模式</dt><dd>额度限制</dd></div>
+            <div><dt>单位</dt><dd>USD</dd></div>
+            <div><dt>已使用</dt><dd>$0.7780</dd></div>
+            <div><dt>剩余额度</dt><dd>$84.20</dd></div>
+          </div>
+        </div>
+        <section class="section">
+          <div class="section-head">
+            <span class="section-title">额度重置</span>
+          </div>
+          <div style="padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface-soft); font-size: 11px; color: var(--muted);">
+            当前 Key 未配置自动重置窗口
+          </div>
+        </section>
+        <section class="section" style="padding-bottom: 12px;">
+          <div class="section-head">
+            <span class="section-title">累计用量</span>
+          </div>
+          <div class="definition-grid">
+            <div><dt>请求次数</dt><dd>15</dd></div>
+            <div><dt>Token 总量</dt><dd>356K</dd></div>
+            <div><dt>实际消费</dt><dd>$0.7780</dd></div>
+          </div>
+        </section>
+      </div>
+
+      <footer class="panel-footer">
+        <div class="footer-left">
+          <span class="status-dot"></span>
+          <span>每 10 分钟刷新</span>
+        </div>
+        <span data-last-updated>更新于 刚刚</span>
+      </footer>
+
+      <!-- 设置面板 -->
+      <div class="settings-layer" id="settingsLayer" style="display: none;">
+        <button class="settings-backdrop" id="settingsBackdrop"></button>
+        <div class="settings-sheet">
+          <div class="settings-header">
+            <div>
+              <h2>面板设置</h2>
+              <p>API Key 仅保存在系统凭据库。</p>
+            </div>
+            <button class="settings-close" id="settingsClose" aria-label="关闭设置">×</button>
+          </div>
+
+          <label class="field">
+            <span>显示名称</span>
+            <input type="text" value="孙骁" placeholder="可留空" />
+          </label>
+
+          <div class="field">
+            <span>API Key</span>
+            <div class="secure-input">
+              <input type="password" placeholder="输入 Sub2API Key" id="apiKeyInput" />
+              <button id="toggleKeyVisibility" aria-label="显示/隐藏">👁</button>
+            </div>
+            <div class="key-source-row">
+              <span class="key-source is-configured">当前使用 Codex auth.json</span>
+              <button class="inline-command" id="saveApiKey">验证并使用</button>
+            </div>
+            <button class="inline-command" style="margin-top: 6px; width: 100%;" id="restoreCodex">恢复 Codex Key</button>
+          </div>
+
+          <label class="field">
+            <span>Sub2API 地址</span>
+            <input type="url" value="" placeholder="https://your-sub2api.example.com" />
+            <small class="field-hint">默认读取 Codex config.toml，可在此覆盖</small>
+          </label>
+
+          <div class="field">
+            <span>自动刷新</span>
+            <div class="interval-control" role="group" aria-label="刷新间隔">
+              <button data-interval="5">5 分钟</button>
+              <button class="is-selected" data-interval="10">10 分钟</button>
+              <button data-interval="30">30 分钟</button>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>低额度提醒</strong>
+              <span>低于 $20 时发送系统通知</span>
+            </div>
+            <button class="switch is-on" id="notifSwitch" role="switch" aria-checked="true" aria-label="低额度提醒">
+              <span></span>
+            </button>
+          </div>
+
+          <button class="primary-button" id="saveSettings">保存设置</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">Apple Utility v2 · 点击悬浮球切换额度演示 · 完整功能原型</div>
+
+    <script>
+      (() => {
+        const root = document.documentElement;
+        let themePref = "light";
+        let systemDark = matchMedia("(prefers-color-scheme: dark)").matches;
+        let lowMode = false;
+
+        // 主题切换
+        function applyTheme() {
+          const theme = themePref === "system" ? (systemDark ? "dark" : "light") : themePref;
+          root.dataset.theme = theme;
+          document.querySelectorAll('[data-theme-choice]').forEach(btn => {
+            btn.setAttribute("aria-pressed", String(btn.dataset.themeChoice === themePref));
+          });
+        }
+        document.querySelectorAll('[data-theme-choice]').forEach(btn => {
+          btn.addEventListener("click", () => { themePref = btn.dataset.themeChoice; applyTheme(); });
+        });
+        matchMedia("(prefers-color-scheme: dark)").addEventListener("change", e => {
+          systemDark = e.matches;
+          if (themePref === "system") applyTheme();
+        });
+
+        // Tab 切换
+        const tabs = document.querySelectorAll('[data-tab]');
+        const overviewView = document.getElementById('overviewView');
+        const keysView = document.getElementById('keysView');
+        tabs.forEach(tab => {
+          tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('is-active'));
+            tab.classList.add('is-active');
+            const isKeys = tab.dataset.tab === 'keys';
+            overviewView.style.display = isKeys ? 'none' : '';
+            keysView.style.display = isKeys ? '' : 'none';
+          });
+        });
+
+        // 趋势数据
+        const trendData = {
+          week: {
+            label: '本周消费趋势',
+            points: [
+              { label: '周一', cost: 0.06 },
+              { label: '周二', cost: 0.14 },
+              { label: '周三', cost: 0.25 },
+              { label: '周四', cost: 0.64 },
+              { label: '周五', cost: 0.14 },
+              { label: '周六', cost: 0.13 },
+              { label: '周日', cost: 0.13, today: true },
+            ],
+            total: 0.78,
+            start: '8/14',
+            end: '8/20',
+          },
+          days: {
+            label: '近 15 日',
+            points: [
+              { label: '8/6', cost: 0.06 },
+              { label: '8/7', cost: 0.10 },
+              { label: '8/8', cost: 0.14 },
+              { label: '8/9', cost: 0.08 },
+              { label: '8/10', cost: 0.25 },
+              { label: '8/11', cost: 0.15 },
+              { label: '8/12', cost: 0.64 },
+              { label: '8/13', cost: 0.30 },
+              { label: '8/14', cost: 0.06 },
+              { label: '8/15', cost: 0.14 },
+              { label: '8/16', cost: 0.25 },
+              { label: '8/17', cost: 0.64 },
+              { label: '8/18', cost: 0.14 },
+              { label: '8/19', cost: 0.13 },
+              { label: '8/20', cost: 0.13, today: true },
+            ],
+            total: 3.21,
+            start: '8/6',
+            end: '8/20',
+          },
+          weeks: {
+            label: '含本周 4 个自然周',
+            points: [
+              { label: '7/28', cost: 1.20, sub: '8/3' },
+              { label: '8/4', cost: 0.85, sub: '8/10' },
+              { label: '8/11', cost: 1.38, sub: '8/17' },
+              { label: '8/18', cost: 0.78, sub: '8/24', today: true },
+            ],
+            total: 4.21,
+            start: '7/28',
+            end: '8/24',
+          },
+        };
+
+        function renderTrend(mode) {
+          const data = trendData[mode];
+          const maxCost = Math.max(...data.points.map(p => p.cost));
+          const container = document.getElementById('trendBars');
+          container.innerHTML = '';
+          data.points.forEach(point => {
+            const wrap = document.createElement('div');
+            wrap.className = 'trend-bar-wrap';
+            const bar = document.createElement('div');
+            bar.className = 'trend-bar' + (point.today ? ' today' : '');
+            bar.style.height = `${Math.max(8, (point.cost / maxCost) * 100)}%`;
+            bar.title = `$${point.cost.toFixed(2)}`;
+            const label = document.createElement('div');
+            label.className = 'trend-bar-label';
+            label.textContent = point.label;
+            wrap.appendChild(bar);
+            wrap.appendChild(label);
+            container.appendChild(wrap);
+          });
+          document.querySelector('[data-trend-range]').textContent = data.label;
+          document.querySelector('[data-trend-total]').textContent = `$${data.total.toFixed(2)}`;
+          document.querySelector('[data-trend-start]').textContent = data.start;
+          document.querySelector('[data-trend-end]').textContent = data.end;
+        }
+
+        document.querySelectorAll('[data-trend-mode]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-trend-mode]').forEach(b => b.classList.remove('is-selected'));
+            btn.classList.add('is-selected');
+            renderTrend(btn.dataset.trendMode);
+          });
+        });
+        renderTrend('week');
+
+        // 悬浮球点击 — 演示低额度切换
+        document.getElementById('floatOrb').addEventListener('click', () => {
+          lowMode = !lowMode;
+          const pct = lowMode ? 18 : 84;
+          const money = lowMode ? '18.00' : '84.20';
+          document.querySelectorAll('[data-orb]').forEach(orb => {
+            orb.style.setProperty('--level', pct);
+            orb.classList.toggle('orb-low', lowMode);
+          });
+          document.querySelectorAll('[data-percent]').forEach(el => el.textContent = `${pct}%`);
+          document.querySelector('[data-remaining]').textContent = money;
+        });
+
+        // 刷新按钮
+        document.getElementById('refreshBtn').addEventListener('click', function() {
+          this.classList.add('spinning');
+          setTimeout(() => this.classList.remove('spinning'), 800);
+        });
+
+        // 设置面板
+        const settingsLayer = document.getElementById('settingsLayer');
+        document.getElementById('settingsBtn').addEventListener('click', () => settingsLayer.style.display = '');
+        document.getElementById('settingsClose').addEventListener('click', () => settingsLayer.style.display = 'none');
+        document.getElementById('settingsBackdrop').addEventListener('click', () => settingsLayer.style.display = 'none');
+
+        // API Key 显示/隐藏
+        document.getElementById('toggleKeyVisibility').addEventListener('click', function() {
+          const input = document.getElementById('apiKeyInput');
+          input.type = input.type === 'password' ? 'text' : 'password';
+        });
+
+        // 刷新间隔
+        document.querySelectorAll('[data-interval]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-interval]').forEach(b => b.classList.remove('is-selected'));
+            btn.classList.add('is-selected');
+          });
+        });
+
+        // 低额度提醒开关
+        const notifSwitch = document.getElementById('notifSwitch');
+        notifSwitch.addEventListener('click', () => {
+          const isOn = notifSwitch.classList.toggle('is-on');
+          notifSwitch.setAttribute('aria-checked', String(isOn));
+        });
+
+        // 保存设置
+        document.getElementById('saveSettings').addEventListener('click', () => {
+          settingsLayer.style.display = 'none';
+        });
+
+        applyTheme();
+      })();
+    </script>
+  </body>
+</html>

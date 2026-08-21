@@ -1,0 +1,1730 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sub2API · Apple Utility v3</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --page: #f2f2f7;
+        --surface: #ffffff;
+        --surface-2: #f9f9f9;
+        --surface-3: #efeff4;
+        --text: #1c1c1e;
+        --muted: #8e8e93;
+        --faint: #c7c7cc;
+        --line: rgba(60, 60, 67, 0.08);
+        --line-strong: rgba(60, 60, 67, 0.16);
+        --water: #2c8be0;
+        --water-deep: #1c6fc7;
+        --water-soft: rgba(44, 139, 224, 0.08);
+        --signal: #ff9f0a;
+        --signal-soft: rgba(255, 159, 10, 0.1);
+        --ok: #34c759;
+        --ok-soft: rgba(52, 199, 89, 0.1);
+        --power: #5856d6;
+        --power-soft: rgba(88, 86, 214, 0.08);
+        --daily: #34c759;
+        --daily-soft: rgba(52, 199, 89, 0.08);
+        --auto: #ff9f0a;
+        --auto-soft: rgba(255, 159, 10, 0.08);
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.06);
+        --ease: cubic-bezier(0.32, 0.72, 0, 1);
+        --radius: 14px;
+        --radius-sm: 10px;
+      }
+
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --page: #000000;
+        --surface: #1c1c1e;
+        --surface-2: #2c2c2e;
+        --surface-3: #3a3a3c;
+        --text: #f2f2f7;
+        --muted: #98989f;
+        --faint: #636366;
+        --line: rgba(255, 255, 255, 0.08);
+        --line-strong: rgba(255, 255, 255, 0.16);
+        --water: #0a84ff;
+        --water-deep: #409cff;
+        --water-soft: rgba(10, 132, 255, 0.16);
+        --signal: #ff9f0a;
+        --signal-soft: rgba(255, 159, 10, 0.16);
+        --ok: #30d158;
+        --ok-soft: rgba(48, 209, 88, 0.16);
+        --power: #5e5ce6;
+        --power-soft: rgba(94, 92, 230, 0.16);
+        --daily: #30d158;
+        --daily-soft: rgba(48, 209, 88, 0.16);
+        --auto: #ff9f0a;
+        --auto-soft: rgba(255, 159, 10, 0.16);
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html { background: var(--page); }
+
+      body {
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 40px 24px;
+        background: var(--page);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+        font-size: 14px;
+        line-height: 1.45;
+        -webkit-font-smoothing: antialiased;
+        font-feature-settings: "tnum" 1, "cv11" 1;
+        transition: background 320ms var(--ease), color 220ms var(--ease);
+      }
+
+      button {
+        font: inherit;
+        color: inherit;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      input { font: inherit; color: inherit; }
+
+      /* ===== 主面板 420 x 640 ===== */
+      .panel {
+        position: relative;
+        width: 420px;
+        height: 640px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-radius: 20px;
+        background: var(--page);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--line);
+      }
+
+      /* Header —— 极简，类 iOS 导航栏 */
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        flex-shrink: 0;
+      }
+
+      .header-title {
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+
+      .icon-btn {
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        color: var(--water);
+        font-size: 16px;
+        transition: background 160ms var(--ease), opacity 160ms var(--ease);
+      }
+
+      .icon-btn:hover {
+        background: var(--water-soft);
+      }
+
+      .icon-btn:active {
+        opacity: 0.5;
+      }
+
+      .icon-btn.spinning {
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+
+      .theme-toggle {
+        display: flex;
+        gap: 2px;
+        padding: 2px;
+        border-radius: 9px;
+        background: var(--surface-3);
+      }
+
+      .theme-toggle button {
+        padding: 3px 8px;
+        border-radius: 7px;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--muted);
+        transition: background 160ms var(--ease), color 160ms var(--ease);
+      }
+
+      .theme-toggle button[aria-pressed="true"] {
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+
+      /* ===== 内容区滚动 ===== */
+      .content-scroll {
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
+        padding: 0 16px 16px;
+      }
+
+      .content-scroll::-webkit-scrollbar { width: 0; }
+
+      /* ===== Hero —— 不用球，类 Apple Card 余额展示 ===== */
+      .hero-card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        padding: 14px 16px 12px;
+        margin-bottom: 12px;
+        border: 0.5px solid var(--line);
+      }
+
+      .hero-top {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 6px;
+      }
+
+      .hero-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--muted);
+        letter-spacing: -0.01em;
+      }
+
+      .hero-status {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--ok);
+      }
+
+      .hero-status::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--ok);
+        box-shadow: 0 0 0 3px var(--ok-soft);
+      }
+
+      .hero-value-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .hero-value {
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1;
+        font-feature-settings: "tnum" 1;
+      }
+
+      .hero-value .currency {
+        font-size: 18px;
+        font-weight: 500;
+        color: var(--muted);
+        vertical-align: super;
+        margin-right: 2px;
+      }
+
+      .hero-total {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--muted);
+        font-feature-settings: "tnum" 1;
+      }
+
+      .hero-total b {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .hero-progress {
+        margin-top: 10px;
+        height: 5px;
+        border-radius: 2.5px;
+        background: var(--surface-3);
+        overflow: hidden;
+      }
+
+      .hero-progress-fill {
+        height: 100%;
+        border-radius: 2.5px;
+        background: linear-gradient(90deg, var(--water), var(--water-deep));
+        transition: width 400ms var(--ease);
+      }
+
+      .hero-progress-fill.low {
+        background: linear-gradient(90deg, var(--signal), #ff6b00);
+      }
+
+      .hero-foot {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 6px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      /* ===== 通用 section（iOS 分组列表） ===== */
+      .group {
+        margin-bottom: 18px;
+      }
+
+      .group-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        padding: 0 4px 6px;
+      }
+
+      .group-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--muted);
+        letter-spacing: -0.01em;
+      }
+
+      .group-meta {
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      .group-action {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--water);
+        text-decoration: none;
+      }
+
+      /* iOS 分组列表卡片 */
+      .list-card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        border: 0.5px solid var(--line);
+        overflow: hidden;
+      }
+
+      /* Today 摘要 —— 横向三格 */
+      .today-list {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .today-list > div {
+        padding: 12px 14px;
+        border-right: 0.5px solid var(--line);
+      }
+
+      .today-list > div:last-child {
+        border-right: 0;
+      }
+
+      .today-list strong {
+        display: block;
+        font-size: 19px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        font-feature-settings: "tnum" 1;
+      }
+
+      .today-list span {
+        display: block;
+        margin-top: 2px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      /* ===== 站长推荐 —— 3 列 x 2 行网格 ===== */
+      .radar-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        background: var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+        border: 0.5px solid var(--line);
+      }
+
+      .radar-col {
+        background: var(--surface);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .radar-col-head {
+        padding: 6px 4px;
+        text-align: center;
+        border-bottom: 0.5px solid var(--line);
+        background: var(--surface-2);
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--muted);
+        letter-spacing: -0.01em;
+      }
+
+      .radar-cells {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        background: var(--line);
+        flex: 1;
+      }
+
+      .radar-cell {
+        background: var(--surface);
+        padding: 7px 6px;
+        cursor: pointer;
+        transition: background 120ms var(--ease);
+      }
+
+      .radar-cell:hover {
+        background: var(--surface-2);
+      }
+
+      .radar-cell:active {
+        background: var(--surface-3);
+      }
+
+      .radar-model {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text);
+        letter-spacing: -0.01em;
+        line-height: 1.2;
+      }
+
+      /* 模型版本号颜色 */
+      .radar-model .ver {
+        font-weight: 700;
+      }
+      .radar-model .ver-5-4 { color: #ff9f0a; }
+      .radar-model .ver-5-5 { color: #5856d6; }
+      .radar-model .ver-5-6 { color: #2c8be0; }
+
+      /* 模型代号颜色 */
+      .radar-model .name-sol { color: #34c759; }
+      .radar-model .name-luna { color: #5856d6; }
+      .radar-model .name-terra { color: #ff2d55; }
+      .radar-model .name-mini { color: #8e8e93; }
+
+      :root[data-theme="dark"] .radar-model .ver-5-4 { color: #ffb340; }
+      :root[data-theme="dark"] .radar-model .ver-5-5 { color: #5e5ce6; }
+      :root[data-theme="dark"] .radar-model .ver-5-6 { color: #0a84ff; }
+      :root[data-theme="dark"] .radar-model .name-sol { color: #30d158; }
+      :root[data-theme="dark"] .radar-model .name-luna { color: #5e5ce6; }
+      :root[data-theme="dark"] .radar-model .name-terra { color: #ff375f; }
+      :root[data-theme="dark"] .radar-model .name-mini { color: #98989f; }
+
+      .radar-effort {
+        font-size: 9px;
+        margin-top: 1px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-weight: 600;
+      }
+      .radar-effort.low { color: #34c759; }
+      .radar-effort.med { color: #ff9f0a; }
+      .radar-effort.high { color: #ff6b00; }
+      .radar-effort.max { color: #ff2d55; }
+
+      :root[data-theme="dark"] .radar-effort.low { color: #30d158; }
+      :root[data-theme="dark"] .radar-effort.med { color: #ffb340; }
+      :root[data-theme="dark"] .radar-effort.high { color: #ff8a3c; }
+      :root[data-theme="dark"] .radar-effort.max { color: #ff375f; }
+
+      .radar-stats {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 5px;
+        font-size: 9px;
+        color: var(--muted);
+        font-feature-settings: "tnum" 1;
+      }
+
+      .radar-stats > span {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+        flex: 1;
+      }
+
+      .radar-stats b {
+        color: var(--text);
+        font-weight: 600;
+        font-size: 10px;
+      }
+
+      .radar-stats span > small {
+        font-size: 8px;
+        color: var(--faint);
+      }
+
+      /* ===== 趋势 ===== */
+      .trend-mode {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+
+      .trend-mode button {
+        padding: 5px 12px;
+        border-radius: 14px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--muted);
+        background: var(--surface-3);
+        transition: background 160ms var(--ease), color 160ms var(--ease);
+      }
+
+      .trend-mode button.is-selected {
+        background: var(--water);
+        color: #fff;
+      }
+
+      .trend-card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        border: 0.5px solid var(--line);
+        padding: 14px;
+      }
+
+      .trend-total-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .trend-total {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        font-feature-settings: "tnum" 1;
+      }
+
+      .trend-range-label {
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .trend-bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 3px;
+        height: 56px;
+      }
+
+      .trend-bar-wrap {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 0;
+        gap: 4px;
+        height: 100%;
+        justify-content: flex-end;
+      }
+
+      .trend-bar {
+        width: 100%;
+        min-height: 2px;
+        border-radius: 3px;
+        background: var(--water);
+        opacity: 0.4;
+        transition: opacity 160ms var(--ease);
+      }
+
+      .trend-bar-wrap:hover .trend-bar {
+        opacity: 0.8;
+      }
+
+      .trend-bar.today {
+        background: var(--water);
+        opacity: 1;
+      }
+
+      .trend-bar-label {
+        font-size: 9px;
+        color: var(--faint);
+        white-space: nowrap;
+      }
+
+      /* ===== 模型消费（iOS 列表行） ===== */
+      .model-list {
+        background: var(--surface);
+        border-radius: var(--radius);
+        border: 0.5px solid var(--line);
+        overflow: hidden;
+      }
+
+      .model-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 14px;
+        border-bottom: 0.5px solid var(--line);
+      }
+
+      .model-row:last-child {
+        border-bottom: 0;
+      }
+
+      .model-name {
+        flex: 1;
+        font-size: 14px;
+        font-weight: 400;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .model-bar-track {
+        width: 60px;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--surface-3);
+        overflow: hidden;
+      }
+
+      .model-bar-fill {
+        height: 100%;
+        border-radius: 2px;
+        background: var(--water);
+      }
+
+      .model-cost {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text);
+        font-feature-settings: "tnum" 1;
+      }
+
+      /* ===== Tabs ===== */
+      .tabs {
+        display: flex;
+        padding: 0 16px;
+        gap: 4px;
+        margin-bottom: 12px;
+        flex-shrink: 0;
+      }
+
+      .tabs button {
+        padding: 6px 14px;
+        border-radius: 16px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--muted);
+        background: var(--surface-3);
+        transition: background 160ms var(--ease), color 160ms var(--ease);
+      }
+
+      .tabs button.is-active {
+        background: var(--text);
+        color: var(--page);
+      }
+
+      :root[data-theme="dark"] .tabs button.is-active {
+        background: #fff;
+        color: #000;
+      }
+
+      /* ===== API Key 视图 ===== */
+      .key-detail-card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        border: 0.5px solid var(--line);
+        overflow: hidden;
+      }
+
+      .key-detail-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px;
+        border-bottom: 0.5px solid var(--line);
+      }
+
+      .key-avatar {
+        width: 40px;
+        height: 40px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--water), var(--water-deep));
+        color: #fff;
+        font-weight: 600;
+        font-size: 17px;
+      }
+
+      .key-info {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .key-info h3 {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+
+      .key-info p {
+        font-size: 12px;
+        color: var(--muted);
+        font-family: "SF Mono", Menlo, monospace;
+      }
+
+      .key-status {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--ok);
+      }
+
+      .key-status::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--ok);
+      }
+
+      .def-list {
+        background: var(--surface);
+        border-radius: var(--radius);
+        border: 0.5px solid var(--line);
+        overflow: hidden;
+      }
+
+      .def-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 11px 14px;
+        border-bottom: 0.5px solid var(--line);
+      }
+
+      .def-row:last-child {
+        border-bottom: 0;
+      }
+
+      .def-row > span {
+        font-size: 14px;
+        color: var(--text);
+      }
+
+      .def-row > strong {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text);
+        font-feature-settings: "tnum" 1;
+      }
+
+      .def-row .def-muted {
+        color: var(--muted);
+      }
+
+      /* ===== 设置面板（iOS Modal Sheet） ===== */
+      .settings-layer {
+        position: absolute;
+        inset: 0;
+        z-index: 30;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+      }
+
+      .settings-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(4px);
+        border: 0;
+        cursor: pointer;
+      }
+
+      .settings-sheet {
+        position: relative;
+        max-height: 90%;
+        overflow-y: auto;
+        background: var(--page);
+        border-radius: 16px 16px 0 0;
+        padding: 8px 0 20px;
+        animation: slideUp 320ms var(--ease);
+      }
+
+      @keyframes slideUp {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+      }
+
+      .settings-grabber {
+        width: 36px;
+        height: 5px;
+        border-radius: 2.5px;
+        background: var(--faint);
+        margin: 6px auto 12px;
+      }
+
+      .settings-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px 12px;
+      }
+
+      .settings-header h2 {
+        font-size: 17px;
+        font-weight: 600;
+      }
+
+      .settings-close {
+        font-size: 17px;
+        font-weight: 400;
+        color: var(--water);
+        padding: 4px 8px;
+      }
+
+      .settings-group {
+        padding: 0 16px;
+        margin-bottom: 20px;
+      }
+
+      .settings-group-title {
+        padding: 0 4px 6px;
+        font-size: 13px;
+        font-weight: 400;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .settings-card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        border: 0.5px solid var(--line);
+        overflow: hidden;
+      }
+
+      .settings-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 14px;
+        border-bottom: 0.5px solid var(--line);
+      }
+
+      .settings-row:last-child {
+        border-bottom: 0;
+      }
+
+      .settings-row > label {
+        flex: 1;
+        font-size: 15px;
+        font-weight: 400;
+        color: var(--text);
+      }
+
+      .settings-row input {
+        flex: 1;
+        padding: 4px 0;
+        border: 0;
+        background: transparent;
+        font-size: 15px;
+        text-align: right;
+        color: var(--text);
+        outline: none;
+      }
+
+      .settings-row input::placeholder {
+        color: var(--faint);
+      }
+
+      .secure-input {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+      }
+
+      .secure-input input {
+        width: 100%;
+        text-align: right;
+      }
+
+      .secure-input button {
+        color: var(--muted);
+        font-size: 14px;
+        padding: 2px;
+      }
+
+      .settings-hint {
+        padding: 6px 18px 0;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .key-source-row {
+        padding: 11px 14px;
+        border-bottom: 0.5px solid var(--line);
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .key-source-row.is-configured {
+        color: var(--ok);
+      }
+
+      .inline-command {
+        padding: 7px 14px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--water);
+        background: var(--water-soft);
+        transition: opacity 120ms var(--ease);
+      }
+
+      .inline-command:hover:not(:disabled) {
+        opacity: 0.8;
+      }
+
+      .inline-command:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .interval-control {
+        display: flex;
+        gap: 6px;
+        padding: 8px 14px;
+      }
+
+      .interval-control button {
+        padding: 5px 12px;
+        border-radius: 14px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--muted);
+        background: var(--surface-3);
+      }
+
+      .interval-control button.is-selected {
+        background: var(--water);
+        color: #fff;
+      }
+
+      .switch-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 11px 14px;
+        border-bottom: 0.5px solid var(--line);
+      }
+
+      .switch-row:last-child {
+        border-bottom: 0;
+      }
+
+      .switch-label strong {
+        display: block;
+        font-size: 15px;
+        font-weight: 400;
+      }
+
+      .switch-label span {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      .switch {
+        width: 51px;
+        height: 31px;
+        border-radius: 16px;
+        background: var(--surface-3);
+        position: relative;
+        transition: background 200ms var(--ease);
+        flex-shrink: 0;
+      }
+
+      .switch.is-on {
+        background: var(--ok);
+      }
+
+      .switch span {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 27px;
+        height: 27px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        transition: transform 200ms var(--ease);
+      }
+
+      .switch.is-on span {
+        transform: translateX(20px);
+      }
+
+      .primary-button {
+        display: block;
+        width: calc(100% - 32px);
+        margin: 8px 16px 0;
+        padding: 13px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #fff;
+        background: var(--water);
+        transition: opacity 120ms var(--ease);
+      }
+
+      .primary-button:active {
+        opacity: 0.8;
+      }
+
+      /* ===== Footer ===== */
+      .panel-footer {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 16px 12px;
+        color: var(--faint);
+        font-size: 11px;
+        flex-shrink: 0;
+      }
+
+      .footer-dot {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: var(--faint);
+      }
+
+      /* ===== 桌面悬浮球（保留 liquid orb） ===== */
+      .floating-orb {
+        position: fixed;
+        top: 80px;
+        right: 40px;
+        width: 72px;
+        height: 72px;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        z-index: 20;
+      }
+
+      .liquid-orb {
+        --level: 84;
+        --orb-size: 72px;
+        position: relative;
+        width: var(--orb-size);
+        height: var(--orb-size);
+        overflow: hidden;
+        border-radius: 50%;
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.4), rgba(180, 220, 235, 0.2));
+        box-shadow: 0 12px 32px rgba(44, 139, 224, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.6);
+        isolation: isolate;
+      }
+
+      .liquid-orb::after {
+        content: "";
+        position: absolute;
+        z-index: 4;
+        top: 12%;
+        left: 22%;
+        width: 28%;
+        height: 16%;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.5);
+        filter: blur(1px);
+        transform: rotate(-22deg);
+        pointer-events: none;
+      }
+
+      .orb-water {
+        position: absolute;
+        z-index: 1;
+        right: -8%;
+        bottom: calc((var(--level) - 100) * 1%);
+        left: -8%;
+        height: 115%;
+        background: linear-gradient(180deg, #5aa8e8, #2c8be0);
+        box-shadow: 0 -4px 12px rgba(44, 139, 224, 0.4);
+        transition: bottom 600ms var(--ease), background 260ms var(--ease);
+      }
+
+      .orb-water::before {
+        content: "";
+        position: absolute;
+        top: -6px;
+        left: -4%;
+        width: 108%;
+        height: 12px;
+        border-radius: 50%;
+        background: rgba(200, 230, 250, 0.7);
+      }
+
+      .orb-content {
+        position: absolute;
+        z-index: 5;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
+
+      .orb-content strong {
+        color: #fff;
+        font-size: 16px;
+        font-weight: 700;
+        text-shadow: 0 1px 4px rgba(0, 60, 120, 0.3);
+        font-feature-settings: "tnum" 1;
+      }
+
+      .orb-low .orb-water {
+        background: linear-gradient(180deg, #ffb340, #ff9f0a);
+      }
+
+      .floating-orb::before {
+        content: "";
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 12px;
+        height: 12px;
+        border: 2.5px solid var(--page);
+        border-radius: 50%;
+        background: var(--ok);
+        z-index: 6;
+      }
+
+      /* ===== Loading ===== */
+      .loading-view {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px 0;
+      }
+
+      .skeleton {
+        border-radius: var(--radius);
+        background: var(--surface-3);
+        animation: shimmer 1.4s infinite;
+      }
+
+      @keyframes shimmer {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+      }
+
+      .skeleton-hero { height: 110px; }
+      .skeleton-row { height: 50px; }
+
+      .note {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: var(--faint);
+        font-size: 11px;
+        font-weight: 500;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 桌面悬浮球（保留 liquid orb） -->
+    <button class="floating-orb" id="floatOrb" title="点击切换额度演示" aria-label="Sub2API 悬浮球">
+      <span class="liquid-orb" data-orb data-level="84">
+        <i class="orb-water"></i>
+        <span class="orb-content"><strong data-percent>84%</strong></span>
+      </span>
+    </button>
+
+    <!-- 主面板 -->
+    <div class="panel" id="panel">
+      <header class="panel-header">
+        <div class="header-title">用量</div>
+        <div class="header-actions">
+          <div class="theme-toggle" role="group" aria-label="外观">
+            <button data-theme-choice="system">系统</button>
+            <button data-theme-choice="light" aria-pressed="true">浅</button>
+            <button data-theme-choice="dark">深</button>
+          </div>
+          <button class="icon-btn" id="refreshBtn" title="刷新" aria-label="刷新">↻</button>
+          <button class="icon-btn" id="settingsBtn" title="设置" aria-label="设置" style="font-size: 18px;">⋯</button>
+        </div>
+      </header>
+
+      <!-- Tabs -->
+      <nav class="tabs" role="tablist">
+        <button class="is-active" data-tab="overview" role="tab">概览</button>
+        <button data-tab="keys" role="tab">API Key</button>
+      </nav>
+
+      <!-- 概览视图 -->
+      <div class="content-scroll" id="overviewView">
+        <!-- Hero —— 简洁数字展示，不用球 -->
+        <div class="hero-card">
+          <div class="hero-top">
+            <span class="hero-label">剩余额度</span>
+            <span class="hero-status">连接正常</span>
+          </div>
+          <div class="hero-value-row">
+            <div class="hero-value">
+              <span class="currency">$</span><span data-remaining>84.20</span>
+            </div>
+            <div class="hero-total"><b data-total>203.2</b> / 300</div>
+          </div>
+          <div class="hero-progress">
+            <div class="hero-progress-fill" data-progress style="width: 84%"></div>
+          </div>
+          <div class="hero-foot">
+            <span>已用 <span data-used>$0.78</span></span>
+            <span data-percent-text>84%</span>
+          </div>
+        </div>
+
+        <!-- Today -->
+        <div class="group">
+          <div class="group-head">
+            <span class="group-title">今日</span>
+            <span class="group-meta">Asia/Shanghai</span>
+          </div>
+          <div class="list-card">
+            <div class="today-list">
+              <div>
+                <strong>$0.135</strong>
+                <span>花费</span>
+              </div>
+              <div>
+                <strong>2</strong>
+                <span>请求</span>
+              </div>
+              <div>
+                <strong>36K</strong>
+                <span>Tokens</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 站长推荐 —— 3 列 x 2 行 -->
+        <div class="group">
+          <div class="group-head">
+            <span class="group-title">站长推荐</span>
+            <span class="group-meta" data-radar-updated>更新于 5 分钟前</span>
+          </div>
+          <div class="radar-grid">
+            <!-- 列 1：难题攻坚 -->
+            <div class="radar-col">
+              <div class="radar-col-head">难题攻坚</div>
+              <div class="radar-cells">
+                <div class="radar-cell">
+                  <div class="radar-model"><span class="ver ver-5-6">5.6</span> <span class="name-luna">luna</span></div>
+                  <div class="radar-effort max">max</div>
+                  <div class="radar-stats">
+                    <span><b>135</b><small>IQ</small></span>
+                    <span><b>4h</b><small>效率</small></span>
+                    <span><b>$16.3</b><small>费用</small></span>
+                  </div>
+                </div>
+                <div class="radar-cell">
+                  <div class="radar-model"><span class="ver ver-5-6">5.6</span> <span class="name-sol">sol</span></div>
+                  <div class="radar-effort high">high</div>
+                  <div class="radar-stats">
+                    <span><b>128</b><small>IQ</small></span>
+                    <span><b>3h</b><small>效率</small></span>
+                    <span><b>$12.1</b><small>费用</small></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- 列 2：日常开发 -->
+            <div class="radar-col">
+              <div class="radar-col-head">日常开发</div>
+              <div class="radar-cells">
+                <div class="radar-cell">
+                  <div class="radar-model"><span class="ver ver-5-6">5.6</span> <span class="name-sol">sol</span></div>
+                  <div class="radar-effort med">med</div>
+                  <div class="radar-stats">
+                    <span><b>120</b><small>IQ</small></span>
+                    <span><b>1h</b><small>效率</small></span>
+                    <span><b>$10.7</b><small>费用</small></span>
+                  </div>
+                </div>
+                <div class="radar-cell">
+                  <div class="radar-model"><span class="ver ver-5-5">5.5</span></div>
+                  <div class="radar-effort low">low</div>
+                  <div class="radar-stats">
+                    <span><b>115</b><small>IQ</small></span>
+                    <span><b>0.7h</b><small>效率</small></span>
+                    <span><b>$8.4</b><small>费用</small></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- 列 3：后台自动化 -->
+            <div class="radar-col">
+              <div class="radar-col-head">后台自动化</div>
+              <div class="radar-cells">
+                <div class="radar-cell">
+                  <div class="radar-model"><span class="ver ver-5-6">5.6</span> <span class="name-terra">terra</span></div>
+                  <div class="radar-effort med">med</div>
+                  <div class="radar-stats">
+                    <span><b>110</b><small>IQ</small></span>
+                    <span><b>0.5h</b><small>效率</small></span>
+                    <span><b>$6.2</b><small>费用</small></span>
+                  </div>
+                </div>
+                <div class="radar-cell">
+                  <div class="radar-model"><span class="ver ver-5-4">5.4</span> <span class="name-mini">mini</span></div>
+                  <div class="radar-effort low">low</div>
+                  <div class="radar-stats">
+                    <span><b>98</b><small>IQ</small></span>
+                    <span><b>0.3h</b><small>效率</small></span>
+                    <span><b>$4.1</b><small>费用</small></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="settings-hint" style="padding: 6px 4px 0;">
+            <a href="https://deng.codexradar.com/" target="_blank" rel="noopener" style="color: var(--water); text-decoration: none;">查看 codexradar 完整榜单 ↗</a>
+          </div>
+        </div>
+
+        <!-- 趋势 -->
+        <div class="group">
+          <div class="group-head">
+            <span class="group-title">消费趋势</span>
+            <span class="group-meta" data-trend-total>$0.78</span>
+          </div>
+          <div class="trend-mode" role="group" aria-label="统计范围">
+            <button class="is-selected" data-trend-mode="week">本周</button>
+            <button data-trend-mode="days">15 日</button>
+            <button data-trend-mode="weeks">4 周</button>
+          </div>
+          <div class="trend-card">
+            <div class="trend-total-row">
+              <span class="trend-total" data-trend-total-large>$0.78</span>
+              <span class="trend-range-label" data-trend-range>本周消费</span>
+            </div>
+            <div class="trend-bars" id="trendBars"></div>
+          </div>
+        </div>
+
+        <!-- 模型消费 -->
+        <div class="group">
+          <div class="group-head">
+            <span class="group-title">模型消费</span>
+            <span class="group-meta">按实际费用</span>
+          </div>
+          <div class="model-list">
+            <div class="model-row">
+              <span class="model-name">gpt-5.5</span>
+              <div class="model-bar-track"><div class="model-bar-fill" style="width: 100%"></div></div>
+              <span class="model-cost">$0.633</span>
+            </div>
+            <div class="model-row">
+              <span class="model-name">gpt-5.6-sol</span>
+              <div class="model-bar-track"><div class="model-bar-fill" style="width: 21%"></div></div>
+              <span class="model-cost">$0.135</span>
+            </div>
+            <div class="model-row">
+              <span class="model-name">gpt-5.4-mini</span>
+              <div class="model-bar-track"><div class="model-bar-fill" style="width: 2%"></div></div>
+              <span class="model-cost">$0.010</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Key 视图 -->
+      <div class="content-scroll" id="keysView" style="display: none;">
+        <div class="group">
+          <div class="key-detail-card">
+            <div class="key-detail-header">
+              <div class="key-avatar">S</div>
+              <div class="key-info">
+                <h3>孙骁的 API Key</h3>
+                <p>sk-••••••••••••••••</p>
+              </div>
+              <span class="key-status">有效</span>
+            </div>
+            <div class="def-list" style="border: 0; border-radius: 0;">
+              <div class="def-row">
+                <span>模式</span>
+                <strong>额度限制</strong>
+              </div>
+              <div class="def-row">
+                <span>单位</span>
+                <strong>USD</strong>
+              </div>
+              <div class="def-row">
+                <span>已使用</span>
+                <strong>$0.7780</strong>
+              </div>
+              <div class="def-row">
+                <span>剩余额度</span>
+                <strong>$84.20</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="group-head">
+            <span class="group-title">额度重置</span>
+          </div>
+          <div class="def-list">
+            <div class="def-row">
+              <span>重置窗口</span>
+              <strong class="def-muted">未配置</strong>
+            </div>
+            <div class="def-row">
+              <span>检测到的重置</span>
+              <strong class="def-muted">尚未检测到</strong>
+            </div>
+            <div class="def-row">
+              <span>Key 过期</span>
+              <strong class="def-muted">未提供</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="group-head">
+            <span class="group-title">累计用量</span>
+          </div>
+          <div class="def-list">
+            <div class="def-row">
+              <span>请求次数</span>
+              <strong>15</strong>
+            </div>
+            <div class="def-row">
+              <span>Token 总量</span>
+              <strong>356K</strong>
+            </div>
+            <div class="def-row">
+              <span>实际消费</span>
+              <strong>$0.7780</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="panel-footer">
+        <span>每 10 分钟刷新</span>
+        <span class="footer-dot"></span>
+        <span data-last-updated>刚刚更新</span>
+      </footer>
+
+      <!-- 设置面板（iOS Modal Sheet） -->
+      <div class="settings-layer" id="settingsLayer" style="display: none;">
+        <button class="settings-backdrop" id="settingsBackdrop"></button>
+        <div class="settings-sheet">
+          <div class="settings-grabber"></div>
+          <div class="settings-header">
+            <button class="settings-close" id="settingsClose">取消</button>
+            <h2>设置</h2>
+            <button class="settings-close" id="settingsSave" style="font-weight: 600;">完成</button>
+          </div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">显示</div>
+            <div class="settings-card">
+              <div class="settings-row">
+                <label for="displayName">显示名称</label>
+                <input type="text" id="displayName" value="孙骁" placeholder="可留空" />
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">API Key</div>
+            <div class="settings-card">
+              <div class="settings-row">
+                <label for="apiKeyInput">Key</label>
+                <div class="secure-input">
+                  <input type="password" id="apiKeyInput" placeholder="输入 Sub2API Key" />
+                  <button id="toggleKeyVisibility" aria-label="显示/隐藏">👁</button>
+                </div>
+              </div>
+              <div class="key-source-row is-configured">当前使用 Codex auth.json</div>
+              <div class="settings-row" style="justify-content: center;">
+                <button class="inline-command" id="saveApiKey">验证并使用</button>
+              </div>
+              <div class="settings-row" style="justify-content: center; border-bottom: 0;">
+                <button class="inline-command" id="restoreCodex" style="color: var(--signal); background: var(--signal-soft);">恢复 Codex Key</button>
+              </div>
+            </div>
+            <div class="settings-hint">API Key 仅保存在系统凭据库，不会上传。</div>
+          </div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">服务地址</div>
+            <div class="settings-card">
+              <div class="settings-row">
+                <label for="baseUrl">Sub2API 地址</label>
+                <input type="url" id="baseUrl" value="" placeholder="默认 Codex config.toml" />
+              </div>
+            </div>
+            <div class="settings-hint">留空则读取 Codex config.toml，填写后覆盖。</div>
+          </div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">刷新</div>
+            <div class="settings-card">
+              <div class="interval-control" role="group" aria-label="刷新间隔">
+                <button data-interval="5">5 分钟</button>
+                <button class="is-selected" data-interval="10">10 分钟</button>
+                <button data-interval="30">30 分钟</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">通知</div>
+            <div class="settings-card">
+              <div class="switch-row">
+                <div class="switch-label">
+                  <strong>低额度提醒</strong>
+                  <span>低于 $20 时发送系统通知</span>
+                </div>
+                <button class="switch is-on" id="notifSwitch" role="switch" aria-checked="true" aria-label="低额度提醒">
+                  <span></span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <button class="primary-button" id="saveSettings">保存设置</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">Apple Utility v3 · iOS 原生风格 · 点击悬浮球切换额度演示</div>
+
+    <script>
+      (() => {
+        const root = document.documentElement;
+        let themePref = "light";
+        let systemDark = matchMedia("(prefers-color-scheme: dark)").matches;
+        let lowMode = false;
+
+        // 主题切换
+        function applyTheme() {
+          const theme = themePref === "system" ? (systemDark ? "dark" : "light") : themePref;
+          root.dataset.theme = theme;
+          document.querySelectorAll('[data-theme-choice]').forEach(btn => {
+            btn.setAttribute("aria-pressed", String(btn.dataset.themeChoice === themePref));
+          });
+        }
+        document.querySelectorAll('[data-theme-choice]').forEach(btn => {
+          btn.addEventListener("click", () => { themePref = btn.dataset.themeChoice; applyTheme(); });
+        });
+        matchMedia("(prefers-color-scheme: dark)").addEventListener("change", e => {
+          systemDark = e.matches;
+          if (themePref === "system") applyTheme();
+        });
+
+        // Tab 切换
+        const tabs = document.querySelectorAll('[data-tab]');
+        const overviewView = document.getElementById('overviewView');
+        const keysView = document.getElementById('keysView');
+        tabs.forEach(tab => {
+          tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('is-active'));
+            tab.classList.add('is-active');
+            const isKeys = tab.dataset.tab === 'keys';
+            overviewView.style.display = isKeys ? 'none' : '';
+            keysView.style.display = isKeys ? '' : 'none';
+          });
+        });
+
+        // 趋势数据
+        const trendData = {
+          week: {
+            label: '本周消费',
+            points: [
+              { label: '一', cost: 0.06 },
+              { label: '二', cost: 0.14 },
+              { label: '三', cost: 0.25 },
+              { label: '四', cost: 0.64 },
+              { label: '五', cost: 0.14 },
+              { label: '六', cost: 0.13 },
+              { label: '日', cost: 0.13, today: true },
+            ],
+            total: 0.78,
+          },
+          days: {
+            label: '近 15 日',
+            points: [
+              { label: '6', cost: 0.06 },
+              { label: '7', cost: 0.10 },
+              { label: '8', cost: 0.14 },
+              { label: '9', cost: 0.08 },
+              { label: '10', cost: 0.25 },
+              { label: '11', cost: 0.15 },
+              { label: '12', cost: 0.64 },
+              { label: '13', cost: 0.30 },
+              { label: '14', cost: 0.06 },
+              { label: '15', cost: 0.14 },
+              { label: '16', cost: 0.25 },
+              { label: '17', cost: 0.64 },
+              { label: '18', cost: 0.14 },
+              { label: '19', cost: 0.13 },
+              { label: '20', cost: 0.13, today: true },
+            ],
+            total: 3.21,
+          },
+          weeks: {
+            label: '4 个自然周',
+            points: [
+              { label: '7/28', cost: 1.20 },
+              { label: '8/4', cost: 0.85 },
+              { label: '8/11', cost: 1.38 },
+              { label: '8/18', cost: 0.78, today: true },
+            ],
+            total: 4.21,
+          },
+        };
+
+        function renderTrend(mode) {
+          const data = trendData[mode];
+          const maxCost = Math.max(...data.points.map(p => p.cost));
+          const container = document.getElementById('trendBars');
+          container.innerHTML = '';
+          data.points.forEach(point => {
+            const wrap = document.createElement('div');
+            wrap.className = 'trend-bar-wrap';
+            const bar = document.createElement('div');
+            bar.className = 'trend-bar' + (point.today ? ' today' : '');
+            bar.style.height = `${Math.max(4, (point.cost / maxCost) * 100)}%`;
+            const label = document.createElement('div');
+            label.className = 'trend-bar-label';
+            label.textContent = point.label;
+            wrap.appendChild(bar);
+            wrap.appendChild(label);
+            container.appendChild(wrap);
+          });
+          document.querySelector('[data-trend-range]').textContent = data.label;
+          const totalStr = `$${data.total.toFixed(2)}`;
+          document.querySelector('[data-trend-total]').textContent = totalStr;
+          document.querySelector('[data-trend-total-large]').textContent = totalStr;
+        }
+
+        document.querySelectorAll('[data-trend-mode]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-trend-mode]').forEach(b => b.classList.remove('is-selected'));
+            btn.classList.add('is-selected');
+            renderTrend(btn.dataset.trendMode);
+          });
+        });
+        renderTrend('week');
+
+        // 悬浮球点击 — 演示低额度切换
+        document.getElementById('floatOrb').addEventListener('click', () => {
+          lowMode = !lowMode;
+          const pct = lowMode ? 18 : 84;
+          const money = lowMode ? '18.00' : '84.20';
+          const total = lowMode ? '203.2' : '203.2';
+          const used = lowMode ? '$185.00' : '$0.78';
+          document.querySelectorAll('[data-orb]').forEach(orb => {
+            orb.style.setProperty('--level', pct);
+            orb.classList.toggle('orb-low', lowMode);
+          });
+          document.querySelectorAll('[data-percent]').forEach(el => el.textContent = `${pct}%`);
+          document.querySelector('[data-remaining]').textContent = money;
+          document.querySelector('[data-total]').textContent = total;
+          document.querySelector('[data-used]').textContent = used;
+          document.querySelector('[data-percent-text]').textContent = `${pct}%`;
+          const fill = document.querySelector('[data-progress]');
+          fill.style.width = `${pct}%`;
+          fill.classList.toggle('low', lowMode);
+        });
+
+        // 刷新按钮
+        document.getElementById('refreshBtn').addEventListener('click', function() {
+          this.classList.add('spinning');
+          setTimeout(() => this.classList.remove('spinning'), 800);
+        });
+
+        // 设置面板
+        const settingsLayer = document.getElementById('settingsLayer');
+        document.getElementById('settingsBtn').addEventListener('click', () => settingsLayer.style.display = '');
+        document.getElementById('settingsClose').addEventListener('click', () => settingsLayer.style.display = 'none');
+        document.getElementById('settingsBackdrop').addEventListener('click', () => settingsLayer.style.display = 'none');
+        document.getElementById('settingsSave').addEventListener('click', () => settingsLayer.style.display = 'none');
+        document.getElementById('saveSettings').addEventListener('click', () => settingsLayer.style.display = 'none');
+
+        // API Key 显示/隐藏
+        document.getElementById('toggleKeyVisibility').addEventListener('click', function() {
+          const input = document.getElementById('apiKeyInput');
+          input.type = input.type === 'password' ? 'text' : 'password';
+        });
+
+        // 刷新间隔
+        document.querySelectorAll('[data-interval]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-interval]').forEach(b => b.classList.remove('is-selected'));
+            btn.classList.add('is-selected');
+          });
+        });
+
+        // 低额度提醒开关
+        const notifSwitch = document.getElementById('notifSwitch');
+        notifSwitch.addEventListener('click', () => {
+          const isOn = notifSwitch.classList.toggle('is-on');
+          notifSwitch.setAttribute('aria-checked', String(isOn));
+        });
+
+        applyTheme();
+      })();
+    </script>
+  </body>
+</html>

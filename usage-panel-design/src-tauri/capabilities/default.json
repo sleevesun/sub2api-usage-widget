@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default permissions for the Sub2API usage widget",
+  "windows": ["main", "orb"],
+  "permissions": ["core:default", "notification:default"]
+}

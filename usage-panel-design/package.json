@@ -1,0 +1,29 @@
+{
+  "name": "sub2api-usage-widget",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 1420",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test:data": "node scripts/test-normalize.mjs",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "latest",
+    "@phosphor-icons/react": "latest",
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/plugin-notification": "2.3.3",
+    "gsap": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4",
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest"
+  }
+}

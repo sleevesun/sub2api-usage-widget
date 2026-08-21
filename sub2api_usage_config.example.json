@@ -1,0 +1,10 @@
+{
+  "base_url": "http://10.255.240.106:9019",
+  "output_dir": "sub2api_usage_output",
+  "keys": [
+    {
+      "name": "example-key-name",
+      "key": "sk-REPLACE_WITH_YOUR_SUB2API_KEY"
+    }
+  ]
+}

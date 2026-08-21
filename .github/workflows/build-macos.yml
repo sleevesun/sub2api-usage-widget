@@ -1,0 +1,129 @@
+name: Build Sub2API Usage (macOS)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos-aarch64:
+    name: Build macOS App (Apple Silicon aarch64)
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect Tauri project root (repo-root vs usage-panel-design subdir)
+        id: detect
+        run: |
+          set -euo pipefail
+          ROOT_DIR="$(pwd)"
+          # Case A: repo root IS the tauri project (contains package.json directly)
+          if [ -f "${ROOT_DIR}/package.json" ] && [ -d "${ROOT_DIR}/src-tauri" ]; then
+            echo "project_dir=." >> $GITHUB_OUTPUT
+            echo "Detected: repository root is the Tauri project"
+          # Case B: tauri project lives in usage-panel-design/ subdirectory
+          elif [ -f "${ROOT_DIR}/usage-panel-design/package.json" ] && [ -d "${ROOT_DIR}/usage-panel-design/src-tauri" ]; then
+            echo "project_dir=usage-panel-design" >> $GITHUB_OUTPUT
+            echo "Detected: Tauri project is in ./usage-panel-design subdir"
+          else
+            echo "ERROR: could not locate Tauri project (package.json + src-tauri/)"
+            echo "Repo root contents:"
+            ls -la "${ROOT_DIR}"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ${{ steps.detect.outputs.project_dir }}/package.json
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install Rust toolchain (stable / aarch64-apple-darwin)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Install frontend dependencies
+        working-directory: ${{ steps.detect.outputs.project_dir }}
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Build frontend + Tauri (macOS aarch64)
+        working-directory: ${{ steps.detect.outputs.project_dir }}
+        run: pnpm tauri build
+        env:
+          CI: true
+          TAURI_SKIP_SIGNING: true
+          APPLE_SIGNING_IDENTITY: ""
+          APPLE_CERTIFICATE: ""
+          APPLE_CERTIFICATE_PASSWORD: ""
+
+      - name: Prepare build artifacts
+        id: prepare
+        run: |
+          set -euo pipefail
+          ROOT_DIR="$(pwd)"
+          PROJECT_DIR="${ROOT_DIR}/${{ steps.detect.outputs.project_dir }}"
+          BUNDLE_DIR="${PROJECT_DIR}/src-tauri/target/release/bundle/macos"
+          OUT_DIR="${ROOT_DIR}/artifacts"
+          mkdir -p "${OUT_DIR}"
+
+          APP_NAME="Sub2API Usage.app"
+          if [ ! -d "${BUNDLE_DIR}/${APP_NAME}" ]; then
+            echo "ERROR: App bundle not found at ${BUNDLE_DIR}/${APP_NAME}"
+            echo "Contents of bundle dir:"
+            ls -la "${BUNDLE_DIR}" || true
+            exit 1
+          fi
+
+          # 1) Zip the .app (best portable format for download)
+          cd "${BUNDLE_DIR}"
+          ZIP_NAME="Sub2API-Usage-macOS-aarch64.zip"
+          zip -qry "${OUT_DIR}/${ZIP_NAME}" "${APP_NAME}"
+          cd "${ROOT_DIR}"
+
+          # 2) Copy dmg if produced
+          shopt -s nullglob
+          DMG_FILES=("${BUNDLE_DIR}"/*.dmg)
+          for dmg in "${DMG_FILES[@]}"; do
+            if [ -f "$dmg" ]; then
+              cp "$dmg" "${OUT_DIR}/Sub2API-Usage-macOS-aarch64.dmg"
+            fi
+          done
+          shopt -u nullglob
+
+          echo "--- artifact listing ---"
+          ls -lah "${OUT_DIR}"
+          echo "artifact_dir=${OUT_DIR}" >> $GITHUB_OUTPUT
+
+      - name: Upload artifacts (keep 30 days)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sub2API-Usage-macOS-aarch64
+          path: ${{ steps.prepare.outputs.artifact_dir }}/*
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Create GitHub Release (on tag push)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Sub2API Usage ${{ github.ref_name }} (macOS)
+          files: |
+            ${{ steps.prepare.outputs.artifact_dir }}/*.zip
+            ${{ steps.prepare.outputs.artifact_dir }}/*.dmg
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
