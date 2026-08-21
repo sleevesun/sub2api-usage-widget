@@ -63,17 +63,12 @@
     ],
     "macOS": {
       "minimumSystemVersion": "12.0",
-      "category": "public.app-category.productivity",
+      "activationPolicy": "accessory",
       "exceptionDomain": "com.sub2api.usage-widget",
       "signingIdentity": null,
       "entitlements": null,
       "infoPlist": {
-        "LSUIElement": true,
-        "LSMinimumSystemVersion": "12.0",
-        "NSUserNotificationAlertStyle": "alert",
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": false
-        }
+        "NSUserNotificationAlertStyle": "alert"
       }
     }
   }
