@@ -1,22 +1,29 @@
 {
   "name": "sub2api-usage-widget",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test:data": "node scripts/test-normalize.mjs",
+    "test:usage": "node scripts/test-usage-period.mjs && node scripts/test-model-usage.mjs && node scripts/test-model-usage-render.mjs",
+    "test:windows": "node scripts/test-usage-startup.mjs && node scripts/test-window-ui.mjs && node scripts/test-orb-render.mjs",
+    "test:bench": "node scripts/test-radar-bench.mjs && node scripts/test-radar-bench-transport.mjs && node scripts/test-radar-bench-render.mjs",
+    "test:updates": "node scripts/test-app-updates.mjs && node scripts/test-app-updates-render.mjs && node scripts/test-update-release.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "release:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-release.ps1"
   },
   "dependencies": {
     "@fontsource-variable/geist": "latest",
     "@phosphor-icons/react": "latest",
     "@tauri-apps/api": "2.11.1",
     "@tauri-apps/plugin-notification": "2.3.3",
+    "@tauri-apps/plugin-process": "2.3.1",
+    "@tauri-apps/plugin-updater": "2.10.1",
     "gsap": "latest",
     "react": "latest",
     "react-dom": "latest"

@@ -6,7 +6,7 @@ use std::{
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
-        Mutex, RwLock,
+        Mutex, OnceLock, RwLock,
     },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -72,8 +72,6 @@ struct UsageState {
     refresh_minutes: AtomicU64,
     notifications_enabled: AtomicBool,
     low_balance_notified: AtomicBool,
-    window_has_focused: AtomicBool,
-    keep_visible: AtomicBool,
 }
 
 impl Default for UsageState {
@@ -84,8 +82,6 @@ impl Default for UsageState {
             refresh_minutes: AtomicU64::new(DEFAULT_REFRESH_MINUTES),
             notifications_enabled: AtomicBool::new(false),
             low_balance_notified: AtomicBool::new(false),
-            window_has_focused: AtomicBool::new(false),
-            keep_visible: AtomicBool::new(false),
         }
     }
 }
@@ -152,6 +148,36 @@ fn usage_url(base_url: &str) -> Result<String, String> {
     let query = format!("days={USAGE_HISTORY_DAYS}&timezone=Asia%2FShanghai");
     url.set_query(Some(&query));
     Ok(url.to_string())
+}
+
+fn valid_usage_date(date: &str) -> bool {
+    let bytes = date.as_bytes();
+    if bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-'
+        || !bytes.iter().enumerate().all(|(index, value)| index == 4 || index == 7 || value.is_ascii_digit())
+    {
+        return false;
+    }
+    let year: u32 = date[..4].parse().unwrap_or(0);
+    let month: usize = date[5..7].parse().unwrap_or(0);
+    let day: u32 = date[8..].parse().unwrap_or(0);
+    if year == 0 || !(1..=12).contains(&month) { return false; }
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let lengths = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    day >= 1 && day <= lengths[month - 1]
+}
+
+fn validate_model_usage_period(start_date: &str, end_date: &str) -> Result<(), String> {
+    if !valid_usage_date(start_date) || !valid_usage_date(end_date) || start_date > end_date {
+        return Err("模型消费的日期范围无效".to_string());
+    }
+    Ok(())
+}
+
+fn model_usage_url(base_url: &str, start_date: &str, end_date: &str) -> Result<reqwest::Url, String> {
+    validate_model_usage_period(start_date, end_date)?;
+    let mut url = reqwest::Url::parse(&usage_url(base_url)?).map_err(|error| error.to_string())?;
+    url.query_pairs_mut().append_pair("start_date", start_date).append_pair("end_date", end_date);
+    Ok(url)
 }
 
 fn read_provider_config() -> Result<ProviderConfig, String> {
@@ -328,6 +354,10 @@ fn source_info_value(app: &AppHandle, state: &UsageState) -> Result<SourceInfo, 
 
 async fn request_usage_with_credentials(credentials: Credentials) -> Result<UsageEnvelope, String> {
     let url = usage_url(&credentials.base_url)?;
+    request_usage_at_url(credentials, &url).await
+}
+
+async fn request_usage_at_url(credentials: Credentials, url: &str) -> Result<UsageEnvelope, String> {
     let response = reqwest::Client::new()
         .get(url)
         .bearer_auth(credentials.api_key)
@@ -357,6 +387,21 @@ async fn request_usage_with_credentials(credentials: Credentials) -> Result<Usag
 
 async fn request_usage(app: &AppHandle) -> Result<UsageEnvelope, String> {
     request_usage_with_credentials(read_credentials(app)?).await
+}
+
+#[tauri::command]
+async fn fetch_model_usage(app: AppHandle, start_date: String, end_date: String) -> Result<JsonValue, String> {
+    validate_model_usage_period(&start_date, &end_date)?;
+    let credentials = read_credentials(&app)?;
+    let url = model_usage_url(&credentials.base_url, &start_date, &end_date)?;
+    let snapshot = request_usage_at_url(credentials, url.as_str()).await?;
+    Ok(serde_json::json!({
+        "startDate": start_date,
+        "endDate": end_date,
+        "modelStats": snapshot.usage.get("model_stats").or_else(|| snapshot.usage.get("modelStats")),
+        "dailyUsage": snapshot.usage.get("daily_usage").or_else(|| snapshot.usage.get("dailyUsage")),
+        "fetchedAtMs": snapshot.fetched_at_ms,
+    }))
 }
 
 fn store_snapshot(app: &AppHandle, snapshot: UsageEnvelope) -> UsageEnvelope {
@@ -497,21 +542,38 @@ fn set_notification_enabled(enabled: bool, state: tauri::State<'_, UsageState>) 
     }
 }
 
-const RADAR_API_URL: &str =
-    "https://api.codexradar.com/api/v1/radar-insights?v=20260815-equal-iq-v2&benchmark=deep-swe";
+const RADAR_API_URL: &str = "https://api.codexradar.com/api/v1/radar-bench-score";
+static RADAR_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+fn radar_score_url(model: &str, effort: &str) -> Result<reqwest::Url, String> {
+    const MODELS: [&str; 6] = [
+        "gpt-6-astra", "gpt-6.1-sol", "gpt-6-sol",
+        "gpt-5.6-sol", "gpt-6-luna", "gpt-5.6-luna",
+    ];
+    const EFFORTS: [&str; 6] = ["ultra", "max", "xhigh", "high", "medium", "low"];
+    if !MODELS.contains(&model) || !EFFORTS.contains(&effort)
+        || (model.ends_with("-luna") && effort == "ultra")
+    {
+        return Err("不支持的雷达Bench模型或思考档位".to_string());
+    }
+    let mut url = reqwest::Url::parse(RADAR_API_URL).map_err(|error| error.to_string())?;
+    url.query_pairs_mut().append_pair("model", model).append_pair("effort", effort);
+    Ok(url)
+}
 
 #[tauri::command]
-async fn fetch_radar_data() -> Result<JsonValue, String> {
-    let response = reqwest::Client::new()
-        .get(RADAR_API_URL)
-        .timeout(Duration::from_secs(10))
+async fn fetch_radar_bench_score(model: String, effort: String) -> Result<JsonValue, String> {
+    let url = radar_score_url(&model, &effort)?;
+    let response = RADAR_CLIENT.get_or_init(reqwest::Client::new)
+        .get(url)
+        .timeout(Duration::from_secs(15))
         .send()
         .await
-        .map_err(|error| format!("请求站长推荐接口失败: {error}"))?;
+        .map_err(|error| format!("请求雷达Bench接口失败: {error}"))?;
 
     if !response.status().is_success() {
         return Err(format!(
-            "站长推荐接口返回 HTTP {}",
+            "雷达Bench接口返回 HTTP {}",
             response.status()
         ));
     }
@@ -519,12 +581,33 @@ async fn fetch_radar_data() -> Result<JsonValue, String> {
     response
         .json::<JsonValue>()
         .await
-        .map_err(|error| format!("解析站长推荐数据失败: {error}"))
+        .map_err(|error| format!("解析雷达Bench数据失败: {error}"))
 }
 
 #[tauri::command]
 fn start_window_dragging(window: WebviewWindow) -> Result<(), String> {
     window.start_dragging().map_err(|e| e.to_string())
+}
+
+fn validate_main_resize(label: &str, direction: &str) -> Result<(), String> {
+    if label != "main" {
+        return Err("仅允许调整主面板大小".to_string());
+    }
+    if ![
+        "North", "South", "East", "West",
+        "NorthEast", "NorthWest", "SouthEast", "SouthWest",
+    ].contains(&direction) {
+        return Err("无效的窗口调整方向".to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn start_window_resize(window: tauri::Window, direction: String) -> Result<(), String> {
+    validate_main_resize(window.label(), &direction)?;
+    let direction = serde_json::from_value(JsonValue::String(direction))
+        .map_err(|_| "无效的窗口调整方向".to_string())?;
+    window.start_resize_dragging(direction).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -562,8 +645,16 @@ fn position_near_tray(window: &WebviewWindow, cursor: PhysicalPosition<f64>) {
     let Some(monitor) = monitor else {
         return;
     };
-    let monitor_position = monitor.position();
-    let monitor_size = monitor.size();
+    let position = tray_panel_position(cursor, window_size, *monitor.position(), *monitor.size());
+    let _ = window.set_position(position);
+}
+
+fn tray_panel_position(
+    cursor: PhysicalPosition<f64>,
+    window_size: PhysicalSize<u32>,
+    monitor_position: PhysicalPosition<i32>,
+    monitor_size: PhysicalSize<u32>,
+) -> PhysicalPosition<i32> {
     let left = monitor_position.x as f64;
     let top = monitor_position.y as f64;
     let right = left + monitor_size.width as f64;
@@ -572,13 +663,18 @@ fn position_near_tray(window: &WebviewWindow, cursor: PhysicalPosition<f64>) {
     let height = window_size.height as f64;
     let margin = 10.0;
 
-    let x = (cursor.x - width + 28.0).clamp(left + margin, right - width - margin);
-    let y = if cursor.y < top + monitor_size.height as f64 / 2.0 {
-        (cursor.y + 14.0).min(bottom - height - margin)
+    let min_x = left + margin;
+    let min_y = top + margin;
+    let max_x = (right - width - margin).max(min_x);
+    let max_y = (bottom - height - margin).max(min_y);
+    let x = (cursor.x - width + 28.0).clamp(min_x, max_x);
+    let preferred_y = if cursor.y < top + monitor_size.height as f64 / 2.0 {
+        cursor.y + 14.0
     } else {
-        (cursor.y - height - 14.0).max(top + margin)
+        cursor.y - height - 14.0
     };
-    let _ = window.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32));
+    let y = preferred_y.clamp(min_y, max_y);
+    PhysicalPosition::new(x.round() as i32, y.round() as i32)
 }
 
 fn position_orb_window(window: &WebviewWindow) {
@@ -692,29 +788,45 @@ fn toggle_main_window(app: &AppHandle, cursor: PhysicalPosition<f64>) {
     }
 }
 
+#[tauri::command]
+fn get_update_info() -> JsonValue {
+    serde_json::json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "supported": cfg!(all(target_os = "windows", target_arch = "x86_64")),
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(UsageState::default())
         .invoke_handler(tauri::generate_handler![
             refresh_usage,
             get_cached_usage,
             get_source_info,
+            get_update_info,
             show_main_window_command,
             set_api_key,
             set_base_url,
             clear_api_key_override,
             set_refresh_interval,
             set_notification_enabled,
-            fetch_radar_data,
+            fetch_radar_bench_score,
+            fetch_model_usage,
             start_window_dragging,
+            start_window_resize,
             move_orb_window,
             orb_open_settings,
             orb_hide,
             minimize_main_window_command
         ])
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             let show_item = MenuItem::with_id(app, "show", "显示面板", true, None::<&str>)?;
             let show_orb_item = MenuItem::with_id(app, SHOW_ORB_MENU_ID, "显示悬浮球", true, None::<&str>)?;
             let refresh_item = MenuItem::with_id(app, "refresh", "立即刷新", true, None::<&str>)?;
@@ -764,9 +876,6 @@ pub fn run() {
             }
 
             if env::args().any(|argument| argument == "--show") {
-                app.state::<UsageState>()
-                    .keep_visible
-                    .store(true, Ordering::Relaxed);
                 show_main_window(app.handle(), None);
             }
 
@@ -785,25 +894,11 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(|window, event| match event {
-            WindowEvent::CloseRequested { api, .. } => {
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 let _ = window.hide();
             }
-            WindowEvent::Focused(focused) => {
-                let state = window.app_handle().state::<UsageState>();
-                if *focused {
-                    state.window_has_focused.store(true, Ordering::Relaxed);
-                } else if !state.keep_visible.load(Ordering::Relaxed)
-                    && state.window_has_focused.swap(false, Ordering::Relaxed)
-                {
-                    // 仅主窗口在失焦时自动隐藏，orb 窗口保持常显
-                    if window.label() == "main" {
-                        let _ = window.hide();
-                    }
-                }
-            }
-            _ => {}
         })
         .run(tauri::generate_context!())
         .expect("failed to run Sub2API usage widget");
@@ -812,9 +907,189 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        effective_base_url, normalize_optional_base_url, tray_menu_item_ids, usage_url,
-        validate_api_key, validate_base_url,
+        effective_base_url, fetch_radar_bench_score, validate_main_resize, normalize_optional_base_url,
+        radar_score_url, tray_menu_item_ids, tray_panel_position, usage_url, validate_api_key,
+        validate_base_url, RADAR_API_URL,
     };
+    use tauri::{PhysicalPosition, PhysicalSize};
+
+    #[test]
+    fn model_usage_query_uses_the_selected_inclusive_dates() {
+        let url = super::model_usage_url(
+            "https://sub2api.example.com/provider/v1",
+            "2026-10-12",
+            "2026-10-13",
+        ).unwrap();
+        assert_eq!(url.path(), "/provider/v1/usage");
+        let query: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
+        assert_eq!(query.get("start_date").unwrap(), "2026-10-12");
+        assert_eq!(query.get("end_date").unwrap(), "2026-10-13");
+        assert_eq!(query.get("timezone").unwrap(), "Asia/Shanghai");
+        assert_eq!(query.get("days").unwrap(), "28");
+    }
+
+    #[test]
+    fn model_usage_query_rejects_invalid_and_reversed_dates() {
+        for (start, end) in [
+            ("2026-02-30", "2026-10-13"),
+            ("2026-10-14", "2026-10-13"),
+            ("2026-10-13&days=999", "2026-10-13"),
+            ("2026-1-01", "2026-10-13"),
+            ("2026-10-13", "2026-13-01"),
+            ("2026-10-13", "2026-10-00"),
+        ] {
+            assert!(super::model_usage_url("https://sub2api.example.com", start, end).is_err());
+        }
+        assert!(super::model_usage_url("https://sub2api.example.com", "2024-02-29", "2024-02-29").is_ok());
+        assert!(super::model_usage_url("https://sub2api.example.com", "2026-10-13", "2026-10-13").is_ok());
+    }
+
+    #[test]
+    #[ignore = "requires the locally configured Sub2API credentials and live service"]
+    fn model_usage_live_selected_day() {
+        let day = std::env::var("SUB2API_USAGE_TEST_DATE").expect("Set the current Asia/Shanghai date for this manual live check");
+        let custom_url = dirs::config_dir()
+            .and_then(|directory| std::fs::read_to_string(directory.join("com.sub2api.usage-widget").join(super::CUSTOM_BASE_URL_FILE)).ok())
+            .and_then(|value| super::validate_base_url(value).ok());
+        let base_url = custom_url.unwrap_or_else(|| super::read_provider_config().expect("Sub2API provider configuration").base_url);
+        let api_key = super::read_custom_api_key().expect("System credential store")
+            .unwrap_or_else(|| super::read_codex_api_key().expect("Configured Codex API key"));
+        let credentials = super::Credentials { api_key, base_url };
+        let url = super::model_usage_url(&credentials.base_url, &day, &day).unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let snapshot = runtime.block_on(super::request_usage_at_url(credentials.clone(), url.as_str()))
+            .expect("Read selected-day usage");
+        let models = snapshot.usage.get("model_stats").and_then(serde_json::Value::as_array).expect("Selected-day model statistics");
+        assert!(models.iter().all(|model| ["actual_cost", "requests", "total_tokens"].iter().all(|field| model.get(field).is_some())), "Live model records must provide all three requested metrics");
+        let model_cost: f64 = models.iter().filter_map(|model| model.get("actual_cost").and_then(serde_json::Value::as_f64)).sum();
+        let today_cost = snapshot.usage.pointer("/usage/today/actual_cost").and_then(serde_json::Value::as_f64).expect("Today's actual cost");
+        assert!((model_cost - today_cost).abs() < 0.01, "Selected-day model amounts must agree with today's usage rather than the default cumulative range");
+        let empty_url = super::model_usage_url(&credentials.base_url, "2000-01-01", "2000-01-01").unwrap();
+        let empty_snapshot = runtime.block_on(super::request_usage_at_url(credentials, empty_url.as_str())).expect("Read empty historical period");
+        assert!(empty_snapshot.usage.get("model_stats").map_or(true, |value| value.is_null() || value.as_array().is_some_and(|rows| rows.is_empty())),
+            "The server must honor the date filter rather than return the current cumulative models for an empty historical period");
+        eprintln!("Live selected-day and empty historical queries passed; {} current models provide amount, requests and tokens", models.len());
+    }
+
+    #[test]
+    fn tray_position_handles_full_monitor_and_oversized_panels() {
+        for size in [PhysicalSize::new(1920, 1080), PhysicalSize::new(2560, 1440)] {
+            for cursor in [PhysicalPosition::new(-60.0, 140.0), PhysicalPosition::new(-60.0, 1120.0)] {
+                assert_eq!(
+                    tray_panel_position(
+                        cursor,
+                        size,
+                        PhysicalPosition::new(-1920, 100),
+                        PhysicalSize::new(1920, 1080),
+                    ),
+                    PhysicalPosition::new(-1910, 110),
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn tray_position_keeps_tall_panels_reachable_from_top_tray() {
+        assert_eq!(
+            tray_panel_position(
+                PhysicalPosition::new(70.0, 40.0),
+                PhysicalSize::new(420, 1440),
+                PhysicalPosition::new(0, 0),
+                PhysicalSize::new(1920, 1080),
+            ),
+            PhysicalPosition::new(10, 10),
+        );
+    }
+
+    #[test]
+    fn tray_position_preserves_normal_panel_placement() {
+        for (cursor, expected) in [
+            (PhysicalPosition::new(1860.0, 1060.0), PhysicalPosition::new(1468, 286)),
+            (PhysicalPosition::new(70.0, 40.0), PhysicalPosition::new(10, 54)),
+        ] {
+            assert_eq!(
+                tray_panel_position(
+                    cursor,
+                    PhysicalSize::new(420, 760),
+                    PhysicalPosition::new(0, 0),
+                    PhysicalSize::new(1920, 1080),
+                ),
+                expected,
+            );
+        }
+    }
+
+    #[test]
+    fn main_panel_supports_all_eight_resize_directions() {
+        for direction in [
+            "North", "South", "East", "West",
+            "NorthEast", "NorthWest", "SouthEast", "SouthWest",
+        ] {
+            assert!(validate_main_resize("main", direction).is_ok());
+        }
+        assert_eq!(
+            validate_main_resize("main", "SouthEast"),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn resize_command_rejects_other_windows_and_invalid_directions() {
+        assert!(validate_main_resize("orb", "SouthEast").is_err());
+        assert!(validate_main_resize("main", "invalid").is_err());
+    }
+
+    #[test]
+    fn radar_bench_uses_public_score_endpoint() {
+        assert_eq!(
+            RADAR_API_URL,
+            "https://api.codexradar.com/api/v1/radar-bench-score"
+        );
+    }
+
+    #[test]
+    fn radar_bench_url_contains_only_the_selected_public_parameters() {
+        let url = radar_score_url("gpt-6.1-sol", "xhigh").unwrap();
+        assert_eq!(url.scheme(), "https");
+        assert_eq!(url.host_str(), Some("api.codexradar.com"));
+        assert_eq!(url.path(), "/api/v1/radar-bench-score");
+        assert_eq!(url.username(), "");
+        assert_eq!(url.password(), None);
+        assert_eq!(
+            url.query_pairs().collect::<Vec<_>>(),
+            vec![
+                ("model".into(), "gpt-6.1-sol".into()),
+                ("effort".into(), "xhigh".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn radar_bench_rejects_invalid_and_unsupported_selections() {
+        for (model, effort) in [
+            ("https://other.example/score", "max"),
+            ("gpt-6-astra&token=private", "max"),
+            ("gpt-6-astra", "unknown"),
+            ("gpt-6-luna", "ultra"),
+            ("gpt-5.6-luna", "ultra"),
+        ] {
+            assert!(radar_score_url(model, effort).is_err());
+        }
+    }
+
+    #[test]
+    #[ignore = "requires the live anonymous RadarBench service"]
+    fn radar_bench_live_public_transport() {
+        let data = tauri::async_runtime::block_on(fetch_radar_bench_score(
+            "gpt-6-astra".to_string(),
+            "xhigh".to_string(),
+        ))
+        .expect("the desktop transport should read the public score");
+        assert_eq!(data["model"], "gpt-6-astra");
+        assert_eq!(data["effort"], "xhigh");
+        assert_eq!(data["score_max"].as_f64(), Some(150.0));
+        assert!(data["statistics"]["sample_count"].as_u64().is_some());
+    }
 
     #[test]
     fn tray_menu_exposes_orb_visibility_action() {

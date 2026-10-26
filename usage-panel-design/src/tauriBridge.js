@@ -55,5 +55,8 @@ export const ensureNotificationPermission = async () => {
 export const onUsageUpdated = (handler) => listen("usage-updated", (event) => handler(event.payload));
 export const onUsageError = (handler) => listen("usage-error", (event) => handler(event.payload));
 export const onOpenSettings = (handler) => listen("open-settings", () => handler());
-export const fetchRadar = () => invoke("fetch_radar_data");
+export const fetchRadarBenchScore = (model, effort) => invoke("fetch_radar_bench_score", { model, effort });
+export const fetchModelUsage = (startDate, endDate) => invoke("fetch_model_usage", { startDate, endDate });
 export const moveOrbWindow = (dx, dy) => invoke("move_orb_window", { deltaX: dx, deltaY: dy });
+export const startWindowDragging = () => invoke("start_window_dragging");
+export const startWindowResize = (direction) => invoke("start_window_resize", { direction });

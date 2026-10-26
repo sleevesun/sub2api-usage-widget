@@ -1,0 +1,134 @@
+name: Build signed Windows updates
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-readiness:
+    runs-on: windows-latest
+    outputs:
+      build: ${{ steps.readiness.outputs.build }}
+    steps:
+      - name: Check release status and signing availability
+        id: readiness
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          HAS_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+          HAS_SIGNING_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD != '' }}
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG) {
+            $encodedTag = [Uri]::EscapeDataString($env:RELEASE_TAG)
+            $response = Invoke-WebRequest -Uri "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/releases/tags/$encodedTag" -Headers @{
+              Authorization = "Bearer $env:GH_TOKEN"
+              Accept = 'application/vnd.github+json'
+            } -SkipHttpErrorCheck
+            if ($response.StatusCode -eq 200) {
+              $release = $response.Content | ConvertFrom-Json
+              if ($release.PSObject.Properties.Name -notcontains 'draft') { throw 'Release response is missing its publication state.' }
+              if (!$release.draft) {
+                'build=false' >> $env:GITHUB_OUTPUT
+                Write-Output '::notice::This version is already published. Its update assets will remain unchanged.'
+                exit 0
+              }
+            } elseif ($response.StatusCode -ne 404) {
+              throw "Could not verify release status (HTTP $($response.StatusCode))."
+            }
+          }
+          if ($env:HAS_SIGNING_KEY -ne 'true' -or $env:HAS_SIGNING_PASSWORD -ne 'true') {
+            'build=false' >> $env:GITHUB_OUTPUT
+            Write-Output '::notice::Cloud signing is not configured. Use the verified local release artifacts or configure both updater signing secrets.'
+            exit 0
+          }
+          'build=true' >> $env:GITHUB_OUTPUT
+  windows-x64:
+    needs: release-readiness
+    if: needs.release-readiness.outputs.build == 'true'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: usage-panel-design
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: stable
+      - name: Install locked dependencies
+        run: |
+          npm install --global pnpm@11.25.0
+          pnpm install --frozen-lockfile
+      - name: Validate application
+        run: |
+          pnpm test:data
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm test:usage
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm test:windows
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm test:bench
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm test:updates
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build signed installer and update manifest
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+        run: |
+          if (!$env:TAURI_SIGNING_PRIVATE_KEY -or !$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
+            throw 'Configure both updater signing secrets before building a release.'
+          }
+          ./scripts/build-windows-release.ps1
+      - name: Save signed release artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Sub2API-Usage-Windows-update
+          path: usage-panel-design/release/v*/*
+          if-no-files-found: error
+          retention-days: 30
+      - name: Refuse changes to an already published release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $encodedTag = [Uri]::EscapeDataString($env:RELEASE_TAG)
+          $response = Invoke-WebRequest -Uri "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/releases/tags/$encodedTag" -Headers @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = 'application/vnd.github+json'
+          } -SkipHttpErrorCheck
+          if ($response.StatusCode -eq 200) {
+            $release = $response.Content | ConvertFrom-Json
+            if (!$release.draft) { throw 'This tag is already published. Create a new version instead of replacing live update assets.' }
+          } elseif ($response.StatusCode -ne 404) {
+            throw "Could not verify release status (HTTP $($response.StatusCode)). No release assets will be changed."
+          }
+      - name: Prepare release for human publication
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Sub2API Usage ${{ github.ref_name }}
+          body_path: usage-panel-design/docs/releases/${{ github.ref_name }}.md
+          files: usage-panel-design/release/${{ github.ref_name }}/*
+          draft: true
+          prerelease: false
+          fail_on_unmatched_files: true

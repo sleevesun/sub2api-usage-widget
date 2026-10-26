@@ -8,13 +8,16 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 1420,
     strictPort: true,
+    watch: {
+      ignored: ["**/src-tauri/**", "**/portable/**"],
+    },
     proxy: {
-      // dev 环境代理 radar API，规避 CORS
-      "/radar-api": {
+      // Anonymous public scores; credentials are never included.
+      "/radar-bench-score": {
         target: "https://api.codexradar.com",
         changeOrigin: true,
         rewrite: (path) =>
-          path.replace(/^\/radar-api/, "/api/v1/radar-insights"),
+          path.replace(/^\/radar-bench-score/, "/api/v1/radar-bench-score"),
       },
     },
   },

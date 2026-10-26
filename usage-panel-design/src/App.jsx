@@ -19,7 +19,6 @@ import {
 } from "@phosphor-icons/react";
 import {
   clearApiKeyOverride,
-  fetchRadar,
   getCachedUsage,
   getSourceInfo,
   ensureNotificationPermission,
@@ -40,71 +39,23 @@ import {
   moveOrbWindow,
 } from "./tauriBridge";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import RadarBench from "./RadarBench.jsx";
+import useRadarBench from "./useRadarBench";
+import OrbVisual, { describeOrb } from "./OrbVisual.jsx";
+import WindowResizeHandles from "./WindowResizeHandles.jsx";
+import WindowHeader from "./WindowHeader.jsx";
+import { loadInitialUsage } from "./usageStartup.js";
+import { buildTrendSeries, dateKeyInTimezone, getUsagePeriod, USAGE_PERIOD_MODES } from "./usagePeriod.js";
+import { normalizeModelStats } from "./modelUsage.js";
+import { createPreviewUsage } from "./previewUsage.js";
+import ModelUsage from "./ModelUsage.jsx";
+import AppUpdatePanel, { AppUpdateNotice } from "./AppUpdatePanel.jsx";
+import useAppUpdates from "./useAppUpdates.js";
+
+export { buildTrendSeries } from "./usagePeriod.js";
 
 const APP_TIME_ZONE = "Asia/Shanghai";
 const KEY_RESET_STORAGE = "sub2api-key-reset-state";
-
-// 站长推荐真实数据源：dradar 项目服务端（https://api.codexradar.com）
-// API 文档：GET /api/v1/radar-insights?v=20260815-equal-iq-v2&benchmark=deep-swe
-// dev 环境通过 vite proxy 规避 CORS；Tauri webview 直接请求完整 URL
-const RADAR_API_URL = import.meta.env.DEV
-  ? "/radar-api?v=20260815-equal-iq-v2&benchmark=deep-swe"
-  : "https://api.codexradar.com/api/v1/radar-insights?v=20260815-equal-iq-v2&benchmark=deep-swe";
-
-// 初始空状态（加载中）
-const radarInitial = { generatedAt: null, categories: [] };
-
-// 解析 model 字段："gpt-5.6-sol" → { version: "5.6", name: "sol" }；"gpt-5.5" → { version: "5.5", name: "" }
-const parseModel = (modelStr) => {
-  const match = modelStr.match(/gpt-(\d+\.\d+)(?:-(\w+))?/);
-  if (match) return { version: match[1], name: match[2] || "" };
-  return { version: "", name: modelStr };
-};
-
-// 将 API 返回的 recommendations 转换为组件格式
-// 过滤掉不需要展示的分类（如跑龙虾类任务）
-const RADAR_HIDDEN_KEYS = new Set(["lobster_tasks"]);
-const normalizeRadar = (data) => {
-  if (!data || !Array.isArray(data.recommendations)) return null;
-  return {
-    generatedAt: data.generated_at ? Date.parse(data.generated_at) : Date.now(),
-    sourceUpdatedAt: data.source_updated_at ? Date.parse(data.source_updated_at) : null,
-    categories: data.recommendations
-      .filter((rec) => !RADAR_HIDDEN_KEYS.has(rec.key))
-      .map((rec) => ({
-      key: rec.key,
-      title: rec.title,
-      models: (rec.items || []).map((item) => {
-        const parsed = parseModel(item.model);
-        return {
-          version: parsed.version,
-          name: parsed.name,
-          effort: item.effort,
-          iq: Math.round(item.iq * 10) / 10,
-          durationMin: Math.round(item.average_duration_minutes),
-          costUsd: Math.round(item.average_cost_usd * 100) / 100,
-          passed: Math.round(item.passed),
-          samples: item.samples,
-          trend48h: Array.isArray(item.trend_48h) ? item.trend_48h.length : 0,
-        };
-      }),
-    })),
-  };
-};
-
-const verClass = (version) => `ver ver-${version.replace(".", "-")}`;
-const nameClass = (name) => (name ? `name-${name}` : "");
-const effortClass = (effort) => {
-  const map = { low: "low", med: "med", medium: "med", high: "high", xhigh: "xhigh", max: "max", ultra: "ultra" };
-  return map[effort] ?? "med";
-};
-
-const formatDuration = (minutes) => {
-  if (minutes < 60) return `${minutes}m`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m === 0 ? `${h}h` : `${h}h${m}`;
-};
 
 const formatRelativeTime = (ms, nowMs = Date.now()) => {
   if (!ms) return "未提供";
@@ -118,33 +69,7 @@ const formatRelativeTime = (ms, nowMs = Date.now()) => {
   return `${Math.floor(hours / 24)} 天前`;
 };
 
-const mockUsage = {
-  keyName: "",
-  status: "active",
-  mode: "quota_limited",
-  unit: "USD",
-  quota: { limit: 300, used: 0.77797735, remaining: 299.22202265 },
-  today: { requests: 2, tokens: 36496, cost: 0.135122 },
-  total: { requests: 15, tokens: 355792, cost: 0.77797735 },
-  days: [
-    { date: "2026-06-30", cost: 0.064, requests: 1, tokens: 12000 },
-    { date: "2026-07-02", cost: 0.142, requests: 3, tokens: 25800 },
-    { date: "2026-07-08", cost: 0.251, requests: 4, tokens: 42800 },
-    { date: "2026-07-14", cost: 0.643, requests: 5, tokens: 96500 },
-    { date: "2026-07-17", cost: 0.135122, requests: 2, tokens: 36496 },
-    { date: "2026-07-20", cost: 0.135122, requests: 2, tokens: 36496 },
-  ],
-  models: [
-    { name: "gpt-5.5", cost: 0.632678 },
-    { name: "gpt-5.6-sol", cost: 0.135122 },
-    { name: "gpt-5.4-mini", cost: 0.01017735 },
-  ],
-  rateLimits: [
-    { window: "7d", used: 0.78, limit: 10, remaining: 9.22, resetAtMs: Date.now() + 86400000 },
-  ],
-  expiresAtMs: null,
-  fetchedAtMs: Date.now(),
-};
+const mockUsage = createPreviewUsage();
 
 const emptyUsage = {
   ...mockUsage,
@@ -191,51 +116,50 @@ export const normalizeEnvelope = (envelope, currentUsage = emptyUsage) => {
   const wrapped = envelope?.fetchedAtMs !== undefined ? envelope : { usage: envelope ?? {} };
   const raw = wrapped.usage ?? {};
   const usageStats = raw.usage ?? {};
-  const dailyUsage = raw.daily_usage ?? raw.dailyUsage ?? [];
-  const modelStats = raw.model_stats ?? raw.modelStats ?? [];
+  const dailyUsage = raw.daily_usage ?? raw.dailyUsage ?? raw.days ?? [];
+  const modelStats = raw.model_stats ?? raw.modelStats ?? raw.models ?? [];
   const quota = raw.quota ?? {};
   const today = raw.today ?? raw.today_usage ?? usageStats.today ?? {};
   const total = raw.total ?? raw.total_usage ?? usageStats.total ?? {};
   const rawRateLimits = raw.rate_limits ?? raw.rateLimits ?? [];
+  const quotaLimit = numberValue(quota.limit, raw.limit);
+  const fetchedAtMs = timestampToMs(wrapped.fetchedAtMs ?? wrapped.fetched_at_ms) ?? Date.now();
+  const normalizedToday = {
+    requests: numberValue(today.requests),
+    tokens: numberValue(today.total_tokens, today.totalTokens, today.tokens),
+    cost: numberValue(today.actual_cost, today.actualCost, today.cost),
+  };
+  const days = Array.isArray(dailyUsage)
+    ? dailyUsage.map((day) => ({
+        date: normalizeDateKey(day.date ?? day.day),
+        cost: numberValue(day.actual_cost, day.actualCost, day.cost),
+        requests: numberValue(day.requests),
+        tokens: numberValue(day.total_tokens, day.totalTokens, day.tokens),
+      })).filter((day) => day.date)
+    : [];
+  const snapshotDay = dateKeyInTimezone(new Date(fetchedAtMs));
+  if ((raw.today ?? raw.today_usage ?? usageStats.today) && !days.some((day) => day.date === snapshotDay)) {
+    days.push({ date: snapshotDay, ...normalizedToday });
+  }
 
   return {
     keyName: currentUsage.keyName,
     status: raw.status ?? (raw.isValid === false ? "invalid" : "active"),
-    mode: raw.mode ?? "unrestricted",
+    mode: raw.mode ?? (quotaLimit > 0 ? "quota_limited" : "unrestricted"),
     unit: raw.unit ?? quota.unit ?? "USD",
     quota: {
-      limit: numberValue(quota.limit, raw.limit),
+      limit: quotaLimit,
       used: numberValue(quota.used, raw.used),
       remaining: numberValue(quota.remaining, raw.remaining),
     },
-    today: {
-      requests: numberValue(today.requests),
-      tokens: numberValue(today.total_tokens, today.totalTokens, today.tokens),
-      cost: numberValue(today.actual_cost, today.actualCost, today.cost),
-    },
+    today: normalizedToday,
     total: {
       requests: numberValue(total.requests),
       tokens: numberValue(total.total_tokens, total.totalTokens, total.tokens),
       cost: numberValue(total.actual_cost, total.actualCost, total.cost, quota.used),
     },
-    days: Array.isArray(dailyUsage)
-      ? dailyUsage
-          .map((day) => ({
-            date: normalizeDateKey(day.date ?? day.day),
-            cost: numberValue(day.actual_cost, day.actualCost, day.cost),
-            requests: numberValue(day.requests),
-            tokens: numberValue(day.total_tokens, day.totalTokens, day.tokens),
-          }))
-          .filter((day) => day.date)
-      : [],
-    models: Array.isArray(modelStats)
-      ? modelStats
-          .map((model) => ({
-            name: model.model ?? model.model_name ?? model.modelName ?? "未知模型",
-            cost: numberValue(model.actual_cost, model.actualCost, model.cost),
-          }))
-          .sort((a, b) => b.cost - a.cost)
-      : [],
+    days,
+    models: normalizeModelStats(modelStats),
     rateLimits: Array.isArray(rawRateLimits)
       ? rawRateLimits.map((limit) => ({
           window: limit.window ?? "额度窗口",
@@ -246,7 +170,7 @@ export const normalizeEnvelope = (envelope, currentUsage = emptyUsage) => {
         }))
       : [],
     expiresAtMs: timestampToMs(raw.expires_at ?? raw.expiresAt),
-    fetchedAtMs: timestampToMs(wrapped.fetchedAtMs ?? wrapped.fetched_at_ms) ?? Date.now(),
+    fetchedAtMs,
   };
 };
 
@@ -263,45 +187,6 @@ const compactNumber = (value) =>
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value);
-
-function dateKeyInTimezone(date, timeZone = APP_TIME_ZONE) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const find = (type) => parts.find((part) => part.type === type)?.value ?? "";
-  return `${find("year")}-${find("month")}-${find("day")}`;
-}
-
-function parseDateKey(value) {
-  return new Date(`${value}T12:00:00Z`);
-}
-
-function addCalendarDays(value, amount) {
-  const date = parseDateKey(value);
-  date.setUTCDate(date.getUTCDate() + amount);
-  return date.toISOString().slice(0, 10);
-}
-
-function startOfNaturalWeek(value) {
-  const weekday = parseDateKey(value).getUTCDay();
-  return addCalendarDays(value, -((weekday + 6) % 7));
-}
-
-function formatDateLabel(value) {
-  const date = parseDateKey(value);
-  return new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "UTC",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
-function formatWeekday(value) {
-  return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][parseDateKey(value).getUTCDay()];
-}
 
 function formatTimestamp(value) {
   if (!value) return "未提供";
@@ -353,62 +238,6 @@ function updateKeyResetState(previous, usage, observedAtMs) {
   };
 }
 
-export function buildTrendSeries(days, mode, todayKey = dateKeyInTimezone(new Date())) {
-  const usageByDate = new Map();
-  days.forEach((day) => {
-    usageByDate.set(day.date, (usageByDate.get(day.date) ?? 0) + day.cost);
-  });
-
-  if (mode === "weeks") {
-    const firstWeek = addCalendarDays(startOfNaturalWeek(todayKey), -21);
-    const points = Array.from({ length: 4 }, (_, index) => {
-      const start = addCalendarDays(firstWeek, index * 7);
-      const end = addCalendarDays(start, 6);
-      const dates = Array.from({ length: 7 }, (_, offset) => addCalendarDays(start, offset));
-      const cost = dates.reduce(
-        (sum, date) => sum + (date > todayKey ? 0 : usageByDate.get(date) ?? 0),
-        0,
-      );
-      return {
-        key: start,
-        label: formatDateLabel(start),
-        secondaryLabel: formatDateLabel(end),
-        cost,
-        future: false,
-        current: index === 3,
-      };
-    });
-    return {
-      points,
-      total: points.reduce((sum, point) => sum + point.cost, 0),
-      rangeLabel: "含本周在内的 4 个自然周",
-    };
-  }
-
-  const isWeek = mode === "week";
-  const start = isWeek ? startOfNaturalWeek(todayKey) : addCalendarDays(todayKey, -14);
-  const count = isWeek ? 7 : 15;
-  const points = Array.from({ length: count }, (_, index) => {
-    const date = addCalendarDays(start, index);
-    const future = date > todayKey;
-    return {
-      key: date,
-      label: isWeek ? formatWeekday(date) : formatDateLabel(date),
-      secondaryLabel: "",
-      cost: future ? null : usageByDate.get(date) ?? 0,
-      future,
-      current: date === todayKey,
-    };
-  });
-  return {
-    points,
-    total: points.reduce((sum, point) => sum + (point.cost ?? 0), 0),
-    rangeLabel: isWeek
-      ? `${formatDateLabel(start)} 至 ${formatDateLabel(todayKey)}`
-      : `${formatDateLabel(start)} 至 ${formatDateLabel(todayKey)}`,
-  };
-}
-
 function IconButton({ label, children, onClick, active = false }) {
   return (
     <button
@@ -433,59 +262,6 @@ function Metric({ icon, label, value, detail }) {
       <strong>{value}</strong>
       <span className="metric-detail">{detail}</span>
     </div>
-  );
-}
-
-function RadarInsights({ radar, nowMs }) {
-  const empty = !radar || !radar.categories || radar.categories.length === 0;
-  if (empty) {
-    return (
-      <section className="data-section radar-section" aria-labelledby="radar-title">
-        <div className="section-heading">
-          <div>
-            <h2 id="radar-title">站长推荐</h2>
-            <p>加载中…</p>
-          </div>
-        </div>
-        <div className="skeleton" style={{ height: 120, borderRadius: "var(--radius)" }} />
-      </section>
-    );
-  }
-  return (
-    <section className="data-section radar-section" aria-labelledby="radar-title">
-      <div className="section-heading">
-        <div>
-          <h2 id="radar-title">站长推荐</h2>
-          <p>更新于 {formatRelativeTime(radar.generatedAt, nowMs)}</p>
-        </div>
-        <a className="radar-link" href="https://deng.codexradar.com/" target="_blank" rel="noopener noreferrer">codexradar ↗</a>
-      </div>
-      <div className="radar-grid">
-        {radar.categories.map((cat) => (
-          <div className="radar-col" key={cat.key}>
-            <div className="radar-col-head">{cat.title}</div>
-            <div className="radar-cells">
-              {cat.models.map((model, idx) => (
-                <div className="radar-cell" key={`${cat.key}-${idx}`}>
-                  <div className="radar-model-row">
-                    <span className="radar-model">
-                      <span className={verClass(model.version)}>{model.version}</span>
-                      {model.name && <span className={nameClass(model.name)}> {model.name}</span>}
-                    </span>
-                    <span className={`radar-effort ${effortClass(model.effort)}`}>{model.effort}</span>
-                  </div>
-                  <div className="radar-stats">
-                    <span><b>{model.iq}</b><small>IQ</small></span>
-                    <span><b>{formatDuration(model.durationMin)}</b><small>效率</small></span>
-                    <span><b>${model.costUsd.toFixed(2)}</b><small>费用</small></span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -563,7 +339,7 @@ function TrendChart({ series, mode, unit }) {
   );
 }
 
-function UsageOverview({ usage, warning, trendMode, onTrendModeChange, todayKey, radar, nowMs }) {
+function UsageOverview({ usage, warning, trendMode, onTrendModeChange, todayKey, bench, nowMs, native, modelRevision }) {
   const money = (value, digits) => formatMoney(value, digits, usage.unit);
   const usedPercent = usage.quota.limit > 0
     ? (usage.quota.used / usage.quota.limit) * 100
@@ -575,12 +351,7 @@ function UsageOverview({ usage, warning, trendMode, onTrendModeChange, todayKey,
     () => buildTrendSeries(usage.days, trendMode, todayKey),
     [usage.days, trendMode, todayKey],
   );
-  const maxModel = Math.max(0.000001, ...usage.models.map((model) => model.cost));
-  const trendModes = [
-    { id: "week", label: "本周" },
-    { id: "days", label: "15 日" },
-    { id: "weeks", label: "4 周" },
-  ];
+  const period = useMemo(() => getUsagePeriod(trendMode, todayKey), [trendMode, todayKey]);
 
   return (
     <div className="tab-content" data-animate-panel>
@@ -635,7 +406,7 @@ function UsageOverview({ usage, warning, trendMode, onTrendModeChange, todayKey,
         />
       </section>
 
-      <RadarInsights radar={radar} nowMs={nowMs} />
+      <RadarBench bench={bench} nowMs={nowMs} />
 
       <section className="data-section trend-section" aria-labelledby="trend-title">
         <div className="section-heading">
@@ -646,11 +417,12 @@ function UsageOverview({ usage, warning, trendMode, onTrendModeChange, todayKey,
           <span className="section-total">{money(trend.total, 4)}</span>
         </div>
         <div className="trend-mode-control" role="group" aria-label="消费趋势统计范围">
-          {trendModes.map((item) => (
+          {USAGE_PERIOD_MODES.map((item) => (
             <button
               className={trendMode === item.id ? "is-selected" : ""}
               type="button"
               key={item.id}
+              aria-pressed={trendMode === item.id}
               onClick={() => onTrendModeChange(item.id)}
             >
               {item.label}
@@ -660,31 +432,7 @@ function UsageOverview({ usage, warning, trendMode, onTrendModeChange, todayKey,
         <TrendChart series={trend} mode={trendMode} unit={usage.unit} />
       </section>
 
-      <section className="data-section model-section" aria-labelledby="model-title">
-        <div className="section-heading">
-          <div>
-            <h2 id="model-title">模型消费</h2>
-            <p>按实际费用排序</p>
-          </div>
-        </div>
-        {usage.models.length > 0 ? (
-          <div className="model-list">
-            {usage.models.map((model) => (
-              <div className="model-row" key={model.name}>
-                <div className="model-copy">
-                  <span>{model.name}</span>
-                  <strong>{money(model.cost, 4)}</strong>
-                </div>
-                <div className="model-bar" aria-hidden="true">
-                  <span style={{ width: `${(model.cost / maxModel) * 100}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="inline-empty">暂无模型消费记录</div>
-        )}
-      </section>
+      <ModelUsage period={period} revision={modelRevision} native={native} unit={usage.unit} previewFetchedAtMs={usage.fetchedAtMs} />
     </div>
   );
 }
@@ -805,6 +553,7 @@ function SecureKeyInput({
 function SettingsPanel({
   keyName,
   sourceInfo,
+  updater,
   onClose,
   onSave,
   onSaveApiKey,
@@ -961,6 +710,7 @@ function SettingsPanel({
         <button className="primary-button" type="button" onClick={() => onSave({ displayName: displayName.trim(), baseUrl: baseUrl.trim(), interval: Number(interval), notifications })}>
           保存设置
         </button>
+        <AppUpdatePanel updater={updater} />
       </div>
     </div>
   );
@@ -972,9 +722,8 @@ function OrbWindow({ usage, hasUsage, error, onOpenMain }) {
   const dragStartRef = useRef({ x: 0, y: 0, moved: false, dragging: false });
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
-  const percent = quotaRemainingPercent(usage);
-  const level = percent === null ? 0 : percent;
-  const label = percent === null ? "—" : `${Math.round(percent)}%`;
+  const orbProps = { percent: quotaRemainingPercent(usage), mode: usage.mode, hasUsage, error };
+  const orb = describeOrb(orbProps);
 
   useEffect(() => {
     if (!hasUsage) return undefined;
@@ -997,12 +746,6 @@ function OrbWindow({ usage, hasUsage, error, onOpenMain }) {
       window.removeEventListener("keydown", onKey);
     };
   }, [menuOpen]);
-
-  const liquidY = 100 - level;
-  const isLow = level > 0 && level < 20;
-  const liquidColor = isLow || error ? "#ff9f0a" : "#2c8be0";
-  const liquidColor2 = isLow || error ? "#e67e00" : "#1c6fc7";
-  const liquidColorTop = isLow || error ? "#ffc94d" : "#6cb4e8";
 
   const onPointerDown = (e) => {
     if (e.button !== 0) return;
@@ -1078,81 +821,18 @@ function OrbWindow({ usage, hasUsage, error, onOpenMain }) {
     <main className="orb-window-root" data-error={error ? "true" : "false"}>
       <div
         className="orb-window-button"
-        data-low={isLow ? "true" : "false"}
+        data-low={orb.isLow ? "true" : "false"}
         role="button"
         tabIndex={0}
-        aria-label="打开 Sub2API 用量面板"
+        aria-label={`打开 Sub2API 用量面板；${orb.description}`}
+        title={orb.description}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onContextMenu={onContextMenu}
       >
-        <svg viewBox="0 0 100 100" className="orb-window-svg" width="72" height="72" aria-hidden="true">
-          <defs>
-            <clipPath id="orbClip">
-              <circle cx="50" cy="50" r="49" />
-            </clipPath>
-            <linearGradient id="liquidGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={liquidColorTop} />
-              <stop offset="60%" stopColor={liquidColor} />
-              <stop offset="100%" stopColor={liquidColor2} />
-            </linearGradient>
-            <radialGradient id="shineGrad" cx="30%" cy="22%" r="55%">
-              <stop offset="0%" stopColor="rgba(255,255,255,0.72)" />
-              <stop offset="45%" stopColor="rgba(255,255,255,0.1)" />
-              <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-            </radialGradient>
-          </defs>
-
-          <g clipPath="url(#orbClip)">
-            <rect x="0" y={liquidY} width="100" height={100 - liquidY} fill="url(#liquidGrad)" />
-            <path
-              d={`M 0 ${liquidY} Q 12.5 ${liquidY - 2.5} 25 ${liquidY} T 50 ${liquidY} T 75 ${liquidY} T 100 ${liquidY} L 100 ${liquidY + 4} L 0 ${liquidY + 4} Z`}
-              fill="rgba(255,255,255,0.35)"
-            >
-              <animate attributeName="d"
-                values={`M 0 ${liquidY} Q 12.5 ${liquidY - 2.5} 25 ${liquidY} T 50 ${liquidY} T 75 ${liquidY} T 100 ${liquidY} L 100 ${liquidY + 4} L 0 ${liquidY + 4} Z;
-                        M 0 ${liquidY} Q 12.5 ${liquidY + 2.5} 25 ${liquidY} T 50 ${liquidY} T 75 ${liquidY} T 100 ${liquidY} L 100 ${liquidY + 4} L 0 ${liquidY + 4} Z;
-                        M 0 ${liquidY} Q 12.5 ${liquidY - 2.5} 25 ${liquidY} T 50 ${liquidY} T 75 ${liquidY} T 100 ${liquidY} L 100 ${liquidY + 4} L 0 ${liquidY + 4} Z`}
-                dur="3.2s" repeatCount="indefinite" />
-            </path>
-            <path
-              d={`M 0 ${liquidY + 1.5} Q 16 ${liquidY - 1} 32 ${liquidY + 1.5} T 64 ${liquidY + 1.5} T 100 ${liquidY + 1.5} L 100 ${liquidY + 5} L 0 ${liquidY + 5} Z`}
-              fill="rgba(255,255,255,0.22)"
-            >
-              <animate attributeName="d"
-                values={`M 0 ${liquidY + 1.5} Q 16 ${liquidY - 1} 32 ${liquidY + 1.5} T 64 ${liquidY + 1.5} T 100 ${liquidY + 1.5} L 100 ${liquidY + 5} L 0 ${liquidY + 5} Z;
-                        M 0 ${liquidY + 1.5} Q 16 ${liquidY + 3.5} 32 ${liquidY + 1.5} T 64 ${liquidY + 1.5} T 100 ${liquidY + 1.5} L 100 ${liquidY + 5} L 0 ${liquidY + 5} Z;
-                        M 0 ${liquidY + 1.5} Q 16 ${liquidY - 1} 32 ${liquidY + 1.5} T 64 ${liquidY + 1.5} T 100 ${liquidY + 1.5} L 100 ${liquidY + 5} L 0 ${liquidY + 5} Z`}
-                dur="4.4s" repeatCount="indefinite" />
-            </path>
-            <circle cx="30" cy={88} r="1.8" fill="rgba(255,255,255,0.65)">
-              <animate attributeName="cy" values={`${88};${68};${88}`} dur="4.6s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.7;1;0.7" dur="4.6s" repeatCount="indefinite" />
-            </circle>
-            <circle cx="44" cy={92} r="1.2" fill="rgba(255,255,255,0.45)">
-              <animate attributeName="cy" values={`${92};${72};${92}`} dur="3.8s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.5;0.9;0.5" dur="3.8s" repeatCount="indefinite" />
-            </circle>
-            <circle cx="56" cy={90} r="1" fill="rgba(255,255,255,0.4)">
-              <animate attributeName="cy" values={`${90};${74};${90}`} dur="5.2s" repeatCount="indefinite" />
-            </circle>
-          </g>
-
-          <circle cx="50" cy="50" r="49" fill="url(#shineGrad)" />
-          <circle cx="50" cy="50" r="48.5" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
-          <text x="50" y="50" textAnchor="middle" dominantBaseline="central"
-            fontSize="20" fontWeight="700" fill="#ffffff"
-            style={{ fontFamily: "system-ui,-apple-system,Segoe UI,sans-serif", letterSpacing: "-0.02em", paintOrder: "stroke fill" }}
-            stroke="#0a2540" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"
-            filter="url(#orbTextShadow)">
-            {label}
-          </text>
-          <filter id="orbTextShadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="1" stdDeviation="0.5" floodColor="#0a2540" floodOpacity="0.5" />
-          </filter>
-        </svg>
+        <OrbVisual {...orbProps} />
       </div>
 
       {menuOpen && (
@@ -1213,7 +893,7 @@ export default function App() {
   });
   const usageRef = useRef(usage);
   const [sourceInfo, setSourceInfo] = useState({
-    baseUrl: runningInTauri ? null : "http://10.255.240.106:9019",
+    baseUrl: runningInTauri ? null : "https://sub2api.example.com",
     providerName: runningInTauri ? null : "浏览器预览",
     refreshMinutes: 10,
     notificationsEnabled: true,
@@ -1229,12 +909,13 @@ export default function App() {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(runningInTauri ? "等待首次查询" : "刚刚");
   const [nowMs, setNowMs] = useState(Date.now());
-  const [radar, setRadar] = useState(radarInitial);
   const todayKey = dateKeyInTimezone(new Date(nowMs));
   const isOrbWindow = (() => {
     try { return runningInTauri && getCurrentWindow().label === "orb"; }
     catch { return false; }
   })();
+  const bench = useRadarBench({ enabled: !isOrbWindow, refreshMinutes: sourceInfo.refreshMinutes });
+  const updater = useAppUpdates({ enabled: !isOrbWindow });
 
   const replaceUsage = (updater) => {
     setUsage((current) => {
@@ -1259,32 +940,6 @@ export default function App() {
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 60000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  // 站长推荐：从 dradar 服务端获取真实数据
-  // Tauri 环境走 Rust 后端（绕开 WebView CORS/CSP 限制）
-  // dev 环境走 vite proxy
-  const refreshRadar = async () => {
-    try {
-      let data;
-      if (runningInTauri) {
-        data = await fetchRadar();
-      } else {
-        const res = await fetch(RADAR_API_URL);
-        if (!res.ok) return;
-        data = await res.json();
-      }
-      const normalized = normalizeRadar(data);
-      if (normalized) setRadar(normalized);
-    } catch {
-      // 静默失败，保留上次数据或空状态
-    }
-  };
-
-  useEffect(() => {
-    refreshRadar();
-    const timer = window.setInterval(refreshRadar, 5 * 60 * 1000); // 每 5 分钟刷新
     return () => window.clearInterval(timer);
   }, []);
 
@@ -1317,8 +972,8 @@ export default function App() {
 
       if (isOrbWindow) {
         try {
-          const cached = await getCachedUsage();
-          if (cached && !disposed) applyEnvelope(cached);
+          const initial = await loadInitialUsage(getCachedUsage, refreshUsage);
+          if (!disposed) applyEnvelope(initial);
         } catch (message) {
           if (!disposed) setError(String(message));
         }
@@ -1333,13 +988,8 @@ export default function App() {
 
         const info = await getSourceInfo();
         if (!disposed) setSourceInfo(info);
-        const cached = await getCachedUsage();
-        if (cached) {
-          if (!disposed) applyEnvelope(cached);
-        } else {
-          const fresh = await refreshUsage();
-          if (!disposed) applyEnvelope(fresh);
-        }
+        const initial = await loadInitialUsage(getCachedUsage, refreshUsage);
+        if (!disposed) applyEnvelope(initial);
         if (!info.keyConfigured && !disposed) setSettingsOpen(true);
       } catch (message) {
         if (!disposed) setError(String(message));
@@ -1379,6 +1029,7 @@ export default function App() {
 
   const refresh = async () => {
     if (refreshing) return;
+    void bench.refresh();
     setRefreshing(true);
     setError(null);
     if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -1388,7 +1039,7 @@ export default function App() {
       if (runningInTauri) applyEnvelope(await refreshUsage());
       else {
         await new Promise((resolve) => window.setTimeout(resolve, 450));
-        applyEnvelope({ fetchedAtMs: Date.now(), usage: mockUsage });
+        applyEnvelope({ fetchedAtMs: Date.now(), usage: createPreviewUsage() });
       }
     } catch (message) {
       setError(String(message));
@@ -1466,12 +1117,13 @@ export default function App() {
   return (
     <main className="preview-stage" data-theme={effectiveTheme} ref={rootRef}>
       <section className="extension-panel" aria-label="Sub2API 用量面板">
-        <header className="app-header" data-animate-header>
+        <WindowResizeHandles />
+        <WindowHeader>
           <div className="brand-copy">
             <h1>用量</h1>
             <span className={error ? "is-error" : ""}>{serviceLabel}</span>
           </div>
-          <div className="header-actions">
+          <div className="header-actions" data-no-window-drag>
             <div className="theme-toggle" role="group" aria-label="外观">
               <button type="button" aria-pressed={theme === "system"} onClick={() => setTheme("system")}>系统</button>
               <button type="button" aria-pressed={theme === "light"} onClick={() => setTheme("light")}>浅</button>
@@ -1482,14 +1134,14 @@ export default function App() {
             </IconButton>
             <IconButton label="设置" onClick={() => setSettingsOpen(true)}><GearSix size={18} /></IconButton>
             <IconButton
-              label="最小化"
+              label="收起面板"
               onClick={async () => {
                 try { await minimizeCurrentWindow(); }
                 catch (err) { console.error("[minimize-btn]", err); }
               }}
             ><Minus size={18} /></IconButton>
           </div>
-        </header>
+        </WindowHeader>
 
         <div className="key-selector">
           <button type="button" aria-label="配置 API Key" onClick={() => setSettingsOpen(true)}>
@@ -1506,12 +1158,14 @@ export default function App() {
           <button className={tab === "overview" ? "is-active" : ""} type="button" onClick={() => setTab("overview")}>概览</button>
           <button className={tab === "keys" ? "is-active" : ""} type="button" onClick={() => setTab("keys")}>API Key</button>
         </nav>
+        <AppUpdateNotice updater={updater} onOpen={() => setSettingsOpen(true)} />
 
         <div className="content-scroll">
           {!hasUsage && !error && <LoadingView />}
           {!hasUsage && error && <ErrorView message={error} onRetry={refresh} onConfigure={() => setSettingsOpen(true)} />}
           {hasUsage && tab === "overview" && (
-            <UsageOverview usage={usage} warning={error} trendMode={trendMode} onTrendModeChange={setTrendMode} todayKey={todayKey} radar={radar} nowMs={nowMs} />
+            <UsageOverview usage={usage} warning={error} trendMode={trendMode} onTrendModeChange={setTrendMode} todayKey={todayKey} bench={bench} nowMs={nowMs}
+              native={runningInTauri} modelRevision={`${usage.fetchedAtMs}:${sourceInfo.baseUrl}:${sourceInfo.keySource}`} />
           )}
           {hasUsage && tab === "keys" && <KeysView usage={usage} resetState={keyResetState} nowMs={nowMs} />}
         </div>
@@ -1525,6 +1179,7 @@ export default function App() {
           <SettingsPanel
             keyName={usage.keyName}
             sourceInfo={sourceInfo}
+            updater={updater}
             onClose={() => setSettingsOpen(false)}
             onSave={saveSettings}
             onSaveApiKey={saveApiKeyOverride}
