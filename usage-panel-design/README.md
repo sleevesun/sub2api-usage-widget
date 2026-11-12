@@ -100,13 +100,13 @@ Installers are written under `src-tauri/target/release/bundle/`.
 The generated NSIS installer is:
 
 ```text
-release/v0.4.0/Sub2API-Usage_0.4.0_x64-setup.exe
+release/v0.4.1/Sub2API-Usage_0.4.1_x64-setup.exe
 ```
 
 The portable executable is:
 
 ```text
-release/v0.4.0/Sub2API-Usage_0.4.0_x64-portable.exe
+release/v0.4.1/Sub2API-Usage_0.4.1_x64-portable.exe
 ```
 
 The portable EXE runs directly without an installer. The same release includes
@@ -130,10 +130,13 @@ following command when the panel should open immediately for manual testing:
 
 ## In-app updates (Windows)
 
-Version 0.3.0 checks for updates shortly after startup. Settings contains manual
-checking, release notes, download progress and an explicit download/install
-button. No update is downloaded until accepted. Failed checks do not claim the
-app is up to date; failed downloads can be retried. The orb never checks updates.
+Version 0.4.1 checks shortly after startup and every thirty minutes while the
+main window is visible. Failed checks retry after five minutes; foreground and
+network recovery events also recheck after that interval. A settings badge and
+main-panel notice show discovered updates, and open the update settings directly.
+Failed checks have a distinct retry notice and retain any known update. Settings
+contains release notes, download progress and an explicit download/install button.
+No update is downloaded until accepted. The orb never checks updates.
 Browser previews and other platforms display the Windows support limitation.
 
 The stable manifest is:

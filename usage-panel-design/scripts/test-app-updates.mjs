@@ -93,4 +93,42 @@ await replacement.check();
 await replacement.check();
 assert.equal(closes, 1, "Superseded updater resources must be closed");
 assert.equal(replacement.getSnapshot().version, null);
+
+let recheckFails = false;
+let retainedCloses = 0;
+const retainedUpdate = { ...update, close: async () => { retainedCloses++; } };
+const retained = createAppUpdater({ getInfo: info, check: async () => {
+  if (recheckFails) throw new Error("temporarily offline");
+  return retainedUpdate;
+}, restart: async () => {} });
+await retained.check();
+recheckFails = true;
+const rechecking = [];
+retained.subscribe(() => rechecking.push(retained.getSnapshot()));
+await retained.check();
+assert.equal(retained.getSnapshot().status, "error");
+assert.equal(retained.getSnapshot().version, "0.3.1", "A later failed check must retain an already discovered update");
+assert.equal(retained.getSnapshot().canInstall, true, "An existing update remains available for explicit installation");
+assert.equal(retainedCloses, 0, "A failed metadata check must not dispose the previously discovered update");
+assert.ok(rechecking.some((state) => state.status === "checking" && state.version === "0.3.1"), "Background checks must not make an existing update disappear");
+
+let cleanupChecks = 0;
+const cleanupFailure = createAppUpdater({ getInfo: info, check: async () => ++cleanupChecks === 1
+  ? { ...update, close: async () => { throw new Error("already closed"); } }
+  : null, restart: async () => {} });
+await cleanupFailure.check();
+await cleanupFailure.check();
+assert.equal(cleanupFailure.getSnapshot().status, "current", "Cleanup of old resources must not discard a successful metadata check");
+assert.equal(cleanupFailure.getSnapshot().version, null);
+
+const restartFailure = createAppUpdater({ getInfo: info,
+  check: async () => ({ ...update, downloadAndInstall: async () => {} }),
+  restart: async () => { throw new Error("relaunch failed"); } });
+await restartFailure.check();
+await restartFailure.install();
+assert.equal(restartFailure.getSnapshot().status, "error");
+assert.equal(restartFailure.getSnapshot().errorKind, "restart", "An installed update awaiting restart must be distinguishable from an unreachable update service");
+assert.equal(restartFailure.getSnapshot().canInstall, false);
+await restartFailure.check();
+assert.equal(restartFailure.getSnapshot().errorKind, "restart", "A completed installation cannot be replaced by another metadata check before restarting");
 console.log("In-app update state, explicit install, retry, progress, concurrency and unavailable-source checks passed");

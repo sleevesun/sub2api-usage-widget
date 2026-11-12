@@ -49,7 +49,7 @@ import { buildTrendSeries, dateKeyInTimezone, getUsagePeriod, USAGE_PERIOD_MODES
 import { normalizeModelStats } from "./modelUsage.js";
 import { createPreviewUsage } from "./previewUsage.js";
 import ModelUsage from "./ModelUsage.jsx";
-import AppUpdatePanel, { AppUpdateNotice } from "./AppUpdatePanel.jsx";
+import AppUpdatePanel, { AppUpdateNotice, AppUpdateSettingsButton } from "./AppUpdatePanel.jsx";
 import useAppUpdates from "./useAppUpdates.js";
 
 export { buildTrendSeries } from "./usagePeriod.js";
@@ -554,6 +554,7 @@ function SettingsPanel({
   keyName,
   sourceInfo,
   updater,
+  focusUpdates = false,
   onClose,
   onSave,
   onSaveApiKey,
@@ -710,7 +711,7 @@ function SettingsPanel({
         <button className="primary-button" type="button" onClick={() => onSave({ displayName: displayName.trim(), baseUrl: baseUrl.trim(), interval: Number(interval), notifications })}>
           保存设置
         </button>
-        <AppUpdatePanel updater={updater} />
+        <AppUpdatePanel updater={updater} focusOnMount={focusUpdates} />
       </div>
     </div>
   );
@@ -1132,7 +1133,7 @@ export default function App() {
             <IconButton label="刷新用量" onClick={refresh} active={refreshing}>
               <span ref={refreshIconRef} className="refresh-icon"><ArrowClockwise size={18} /></span>
             </IconButton>
-            <IconButton label="设置" onClick={() => setSettingsOpen(true)}><GearSix size={18} /></IconButton>
+            <AppUpdateSettingsButton updater={updater} onOpen={(section) => setSettingsOpen(section)} />
             <IconButton
               label="收起面板"
               onClick={async () => {
@@ -1158,7 +1159,7 @@ export default function App() {
           <button className={tab === "overview" ? "is-active" : ""} type="button" onClick={() => setTab("overview")}>概览</button>
           <button className={tab === "keys" ? "is-active" : ""} type="button" onClick={() => setTab("keys")}>API Key</button>
         </nav>
-        <AppUpdateNotice updater={updater} onOpen={() => setSettingsOpen(true)} />
+        <AppUpdateNotice updater={updater} onOpen={() => setSettingsOpen("updates")} />
 
         <div className="content-scroll">
           {!hasUsage && !error && <LoadingView />}
@@ -1180,6 +1181,7 @@ export default function App() {
             keyName={usage.keyName}
             sourceInfo={sourceInfo}
             updater={updater}
+            focusUpdates={settingsOpen === "updates"}
             onClose={() => setSettingsOpen(false)}
             onSave={saveSettings}
             onSaveApiKey={saveApiKeyOverride}

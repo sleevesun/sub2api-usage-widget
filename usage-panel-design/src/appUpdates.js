@@ -2,7 +2,7 @@ export function createAppUpdater({ getInfo, check, restart }) {
   let state = {
     status: "idle", currentVersion: "", supported: false,
     version: null, notes: "", date: null, canInstall: false,
-    downloadedBytes: 0, totalBytes: null, error: null,
+    downloadedBytes: 0, totalBytes: null, error: null, errorKind: null,
   };
   let initialization;
   let operation;
@@ -17,34 +17,35 @@ export function createAppUpdater({ getInfo, check, restart }) {
       publish({ currentVersion: info.version, supported: info.supported, status: info.supported ? "idle" : "unsupported" });
     }).catch(() => {
       initialization = undefined;
-      publish({ status: "error", error: "无法读取当前版本，请重新打开应用后重试。" });
+      publish({ status: "error", errorKind: "initialization", error: "无法读取当前版本，请重新打开应用后重试。" });
     });
     return initialization;
   };
   const checking = async () => {
     await initialize();
-    if (!state.supported || ["downloading", "installing", "restarting"].includes(state.status)) return;
+    if (!state.supported || state.errorKind === "restart" || ["downloading", "installing", "restarting"].includes(state.status)) return;
     if (operation) return operation;
-    publish({ status: "checking", error: null, canInstall: false });
+    publish({ status: "checking", error: null, errorKind: null, canInstall: false });
     operation = (async () => {
       try {
-        await update?.close();
-        update = null;
-        publish({ version: null, notes: "", date: null, downloadedBytes: 0, totalBytes: null });
+        const previous = update;
         update = await check();
         publish(update ? {
           status: "available", version: update.version, notes: update.body ?? "",
-          date: update.date ?? null, canInstall: true,
-        } : { status: "current" });
+          date: update.date ?? null, canInstall: true, downloadedBytes: 0, totalBytes: null,
+        } : { status: "current", version: null, notes: "", date: null, downloadedBytes: 0, totalBytes: null });
+        if (previous && previous !== update) {
+          try { await previous.close(); } catch { /* The new metadata is valid even if an old resource was already closed. */ }
+        }
       } catch {
-        publish({ status: "error", error: "暂时无法连接更新服务，请稍后重试。", canInstall: false });
+        publish({ status: "error", errorKind: "check", error: "暂时无法连接更新服务，请稍后重试。", canInstall: Boolean(update) });
       }
     })();
     try { await operation; } finally { operation = null; }
   };
   const install = async () => {
     if (!update || operation || !state.canInstall) return;
-    publish({ status: "downloading", downloadedBytes: 0, totalBytes: null, error: null, canInstall: false });
+    publish({ status: "downloading", downloadedBytes: 0, totalBytes: null, error: null, errorKind: null, canInstall: false });
     operation = (async () => {
       let installed = false;
       try {
@@ -63,7 +64,7 @@ export function createAppUpdater({ getInfo, check, restart }) {
         publish({ status: "restarting" });
         await restart();
       } catch {
-        publish({ status: "error", canInstall: !installed, error: installed
+        publish({ status: "error", errorKind: installed ? "restart" : "install", canInstall: !installed, error: installed
           ? "更新已安装，请退出应用后重新打开。"
           : "更新未完成，请检查网络后重试；当前版本仍可使用。" });
       }

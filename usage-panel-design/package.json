@@ -1,7 +1,7 @@
 {
   "name": "sub2api-usage-widget",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420",
@@ -11,7 +11,7 @@
     "test:usage": "node scripts/test-usage-period.mjs && node scripts/test-model-usage.mjs && node scripts/test-model-usage-render.mjs",
     "test:windows": "node scripts/test-usage-startup.mjs && node scripts/test-window-ui.mjs && node scripts/test-orb-render.mjs",
     "test:bench": "node scripts/test-radar-bench.mjs && node scripts/test-radar-bench-transport.mjs && node scripts/test-radar-bench-render.mjs && node scripts/test-radar-preview.mjs",
-    "test:updates": "node scripts/test-app-updates.mjs && node scripts/test-app-updates-render.mjs && node scripts/test-update-release.mjs",
+    "test:updates": "node scripts/test-app-updates.mjs && node scripts/test-app-update-schedule.mjs && node scripts/test-app-updates-render.mjs && node scripts/test-update-release.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",

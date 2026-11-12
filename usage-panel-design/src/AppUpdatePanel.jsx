@@ -1,11 +1,19 @@
+import { useEffect, useRef } from "react";
+import { GearSix } from "@phosphor-icons/react";
 import "./appUpdates.css";
 
 const busyStates = ["checking", "downloading", "installing", "restarting"];
 const sizeText = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
-export default function AppUpdatePanel({ updater }) {
+export default function AppUpdatePanel({ updater, focusOnMount = false }) {
   const { state, check, install } = updater;
-  const busy = busyStates.includes(state.status);
+  const sectionRef = useRef(null);
+  useEffect(() => {
+    if (!focusOnMount) return;
+    sectionRef.current?.scrollIntoView({ block: "nearest" });
+    sectionRef.current?.focus({ preventScroll: true });
+  }, [focusOnMount]);
+  const busy = busyStates.includes(state.status) || state.errorKind === "restart";
   const percent = state.totalBytes > 0 ? Math.min(100, Math.floor(state.downloadedBytes / state.totalBytes * 100)) : null;
   const labels = {
     idle: "可手动检查新版本", checking: "正在检查更新…", current: "已是最新版本",
@@ -14,7 +22,7 @@ export default function AppUpdatePanel({ updater }) {
     unsupported: "自动更新适用于 Windows 安装版", error: state.error,
   };
   return (
-    <section className="app-update-section" aria-labelledby="app-update-title">
+    <section ref={sectionRef} tabIndex={-1} className="app-update-section" aria-labelledby="app-update-title">
       <div className="app-update-heading"><h3 id="app-update-title">应用更新</h3><span>当前版本 {state.currentVersion || "读取中"}</span></div>
       <p className={`app-update-status${state.status === "error" ? " is-error" : ""}`} role="status">{labels[state.status]}</p>
       {state.version && <div className="app-update-release">
@@ -36,11 +44,41 @@ export default function AppUpdatePanel({ updater }) {
   );
 }
 
-export function AppUpdateNotice({ updater, onOpen }) {
-  const { state } = updater;
-  if (!state.version || !["available", "downloading", "installing", "restarting"].includes(state.status)) return null;
-  return <button type="button" className="app-update-notice" onClick={onOpen}>
-    <span>{state.status === "available" ? `新版本 ${state.version} 可用` : state.status === "downloading" ? "正在下载应用更新" : "正在安装应用更新"}</span>
-    <span>查看 ›</span>
+function updateAttention(state) {
+  if (!state.supported) return null;
+  if (state.errorKind === "restart") {
+    return { kind: "installed", message: "更新已安装，请重新打开应用", action: "查看详情", label: "设置，更新已安装，请重新打开应用" };
+  }
+  if (state.version && (state.canInstall || ["available", ...busyStates].includes(state.status))) {
+    const message = state.status === "downloading" ? `正在下载新版本 ${state.version}`
+      : ["installing", "restarting"].includes(state.status) ? `正在安装新版本 ${state.version}`
+      : `新版本 ${state.version} 可用`;
+    return { kind: "available", message, action: "查看更新", label: `设置，有新版本 ${state.version}` };
+  }
+  return state.status === "error"
+    ? { kind: "error", message: "更新检查未完成", action: "重试", label: "设置，更新检查未完成" }
+    : null;
+}
+
+export function AppUpdateSettingsButton({ updater, onOpen }) {
+  const attention = updateAttention(updater.state);
+  const label = attention?.label ?? "设置";
+  return <button type="button" className="icon-button app-update-settings" aria-label={label} data-tooltip={label}
+    onClick={() => onOpen(attention ? "updates" : "general")}>
+    <GearSix size={18} />
+    {attention && <span className={`app-update-badge is-${attention.kind}`} aria-hidden="true" />}
   </button>;
+}
+
+export function AppUpdateNotice({ updater, onOpen }) {
+  const attention = updateAttention(updater.state);
+  if (!attention) return null;
+  return <div className={`app-update-notice is-${attention.kind}`} role="status">
+    <button type="button" onClick={() => {
+      onOpen();
+      if (attention.kind === "error") void updater.check();
+    }}>
+      <span>{attention.message}</span><span>{attention.action} ›</span>
+    </button>
+  </div>;
 }
