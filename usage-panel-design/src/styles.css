@@ -557,11 +557,15 @@ button {
   overflow: hidden;
 }
 
-.model-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
-.model-name-column { width: 35%; }
-.model-cost-column { width: 30%; }
-.model-requests-column { width: 15%; }
-.model-tokens-column { width: 20%; }
+.model-list { overflow-x: auto; max-width: 100%; scrollbar-width: thin; overscroll-behavior-x: contain; }
+.model-list:focus-visible { outline: 2px solid var(--water); outline-offset: 2px; }
+.model-table { width: 100%; min-width: 480px; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+.model-name-column { width: 30%; }
+.model-cost-column { width: 25%; }
+.model-requests-column { width: 13%; }
+.model-tokens-column { width: 18%; }
+.model-tps-column { width: 14%; }
+.model-table tr > th:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface); }
 .model-table th, .model-table td { padding: 11px 8px; text-align: right; border-bottom: 0.5px solid var(--line); }
 .model-table th:first-child { padding-left: 12px; text-align: left; }
 .model-table th:last-child, .model-table td:last-child { padding-right: 12px; }

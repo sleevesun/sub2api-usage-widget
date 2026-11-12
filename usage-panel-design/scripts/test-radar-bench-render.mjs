@@ -1,46 +1,27 @@
 import assert from "node:assert/strict";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { createServer } from "vite";
-import { RADAR_BENCH_SELECTIONS, normalizeRadarBenchScore, radarBenchKey } from "../src/radarBench.js";
-
-const cells = Object.fromEntries(RADAR_BENCH_SELECTIONS.map((selection) => {
-  const data = {
-    ...selection, score: 121.1, score_max: 150, score_status: "provisional", coverage: 62, required_tasks: 64,
-    statistics: { sample_count: 63, metrics: {
-      api_equivalent_usd: { known_total: 211.05, known_samples: 63, missing_samples: 0 },
-      elapsed_ms: { known_total: 49896000, known_samples: 63, missing_samples: 0 },
-    } },
-  };
-  return [radarBenchKey(selection), normalizeRadarBenchScore(data, selection, 1234)];
-}));
-cells["gpt-6-luna/low"] = { ...cells["gpt-6-luna/low"], score: 0, averageCostUsd: 0, averageDurationMinutes: 0 };
-cells["gpt-5.6-sol/max"] = { ...cells["gpt-5.6-sol/max"], averageCostUsd: 7.48, costPartial: true, costKnownSamples: 10, samples: 39 };
-cells["gpt-5.6-luna/max"] = { model: "gpt-5.6-luna", effort: "max", error: "HTTP 503" };
-const state = { cells, isRefreshing: false, resolved: 34, lastAttemptAtMs: 1234, refresh: async () => {} };
-
-const server = await createServer({ server: { middlewareMode: true }, appType: "custom" });
+import {createElement} from "react";
+import {renderToStaticMarkup} from "react-dom/server";
+import {createServer} from "vite";
+import {normalizeRadarSnapshot} from "../src/radarBench.js";
+const snapshot=normalizeRadarSnapshot({fetched_at:"2026-11-12T03:00:00Z",status:"latest",metadata:{author_test_interval:{completed_at:"2026-11-12T02:41:00Z"}},unsupported:[{model:"gpt-6-luna",effort:"ultra"}],rows:[
+ {model:"gpt-6.1-terra",effort:"max",score150:121.25,cost_usd:2,model_elapsed_seconds:120,cost_kind:"api_equivalent_estimate"},
+ {model:"gpt-6-astra",effort:"max",score150:null,cost_usd:null,model_elapsed_seconds:null},
+ {model:"gpt-6-luna",effort:"high",score150:30,cost_usd:0.01,model_elapsed_seconds:30},
+]});
+const bench={snapshot,loading:false,error:null,refresh:async()=>{}};
+const server=await createServer({server:{middlewareMode:true,watch:null,hmr:false},appType:"custom"});
 try {
-  let RadarBench;
-  try {
-    ({ default: RadarBench } = await server.ssrLoadModule("/src/RadarBench.jsx"));
-  } catch (error) {
-    if (error.code !== "ERR_LOAD_URL") throw error;
-  }
-  assert.equal(typeof RadarBench, "function", "The approved RadarBench matrix is not implemented");
-  const html = renderToStaticMarkup(createElement(RadarBench, { bench: state, nowMs: 2000 }));
-  assert.ok(html.includes("雷达Bench"));
-  for (const effort of ["ULTRA", "MAX", "XHIGH", "HIGH", "MEDIUM", "LOW"]) assert.ok(html.includes(effort));
-  assert.ok(html.includes("121.1") && html.includes("$3.35") && html.includes("13.2m"), "all three measurements render together");
-  assert.ok(html.includes("$7.48*"), "partial averages remain visibly marked");
-  assert.ok(html.includes("$0.00") && html.includes("0.0m"), "zero measurements do not become missing values");
-  assert.ok(html.includes("无此档位"), "unsupported combinations are distinguishable from failed requests");
-  assert.ok(html.includes("503"), "failed public reads expose their state");
-  assert.ok(html.includes("覆盖 62/64"));
-  assert.ok(!html.includes("站长推荐"));
-  assert.ok(!html.includes("矩阵指标") && !html.includes("data-bench-metric"), "there are no metric tabs");
-  assert.ok(!/\d+\s*(?:题)?次/.test(html), "submission counters are absent");
-} finally {
-  await server.close();
-}
-console.log("RadarBench matrix rendering contract passed");
+ const {default:RadarBench}=await server.ssrLoadModule("/src/RadarBench.jsx");
+ const render=(props={})=>renderToStaticMarkup(createElement(RadarBench,{bench,...props}));
+ const matrix=render();
+ for(const text of ["Codex Radar","矩阵视图","排名视图","121.25","$2.00","2.0 分钟","待评分","无此档位","并非人类 IQ","官网未提供判分进度","10:41"]) assert.ok(matrix.includes(text),text);
+ assert.match(matrix,/aria-selected="true"[^>]*>.*?矩阵视图/);
+ assert.ok(!matrix.includes("gpt-5.6")&&!matrix.includes("原型"));
+ const ranking=render({initialView:"ranking"});
+ for(const text of ["纯智商榜","性价比榜","效率榜","智商 &gt; 90","checked"]) assert.ok(ranking.includes(text),text);
+ assert.ok(!ranking.includes('data-model="gpt-6-luna"'),"The default ranking filter excludes low scores");
+ assert.equal((ranking.match(/data-rank-type=/g)||[]).length,3);
+ const stale=render({bench:{...bench,snapshot:{...snapshot,status:"stale"},error:"HTTP 503"}});assert.ok(stale.includes("缓存数据")&&stale.includes("121.25"));
+ const unavailable=render({bench:{snapshot:null,loading:false,error:"offline",refresh:async()=>{}}});assert.ok(unavailable.includes("不可用")&&unavailable.includes("offline"));
+}finally{await server.close()}
+console.log("Codex Radar matrix, rankings, default filter and fallback rendering passed");

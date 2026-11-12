@@ -17,12 +17,14 @@ try {
       { model: "unknown" },
     ]),
   }));
-  for (const label of ["模型", "消费金额", "请求数", "Token", "US$2.5000", "3.2万", "US$0.0000"]) {
+  for (const label of ["模型", "消费金额", "请求数", "Token", "TPS", "US$2.5000", "3.2万", "US$0.0000"]) {
     assert.ok(html.includes(label), `Missing model table content: ${label}`);
   }
   assert.ok(html.includes('title="请求数：12"'));
   assert.ok(html.includes('title="Token：32,000"'));
-  assert.equal((html.match(/>—</g) ?? []).length, 3, "Missing metrics must remain distinct from zero");
+  assert.equal((html.match(/>—</g) ?? []).length, 6, "Missing metrics must remain distinct from zero");
+
+  assert.ok(html.includes("接口未提供模型 TPS"));
 
   const preview = createPreviewUsage();
   const todayKey = dateKeyInTimezone(new Date(preview.fetchedAtMs));

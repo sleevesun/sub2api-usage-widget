@@ -1,3 +1,5 @@
+mod codex_radar;
+
 use keyring::{Entry, Error as KeyringError};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
@@ -6,7 +8,7 @@ use std::{
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
-        Mutex, OnceLock, RwLock,
+        Mutex, RwLock,
     },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -542,48 +544,6 @@ fn set_notification_enabled(enabled: bool, state: tauri::State<'_, UsageState>) 
     }
 }
 
-const RADAR_API_URL: &str = "https://api.codexradar.com/api/v1/radar-bench-score";
-static RADAR_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
-
-fn radar_score_url(model: &str, effort: &str) -> Result<reqwest::Url, String> {
-    const MODELS: [&str; 6] = [
-        "gpt-6-astra", "gpt-6.1-sol", "gpt-6-sol",
-        "gpt-5.6-sol", "gpt-6-luna", "gpt-5.6-luna",
-    ];
-    const EFFORTS: [&str; 6] = ["ultra", "max", "xhigh", "high", "medium", "low"];
-    if !MODELS.contains(&model) || !EFFORTS.contains(&effort)
-        || (model.ends_with("-luna") && effort == "ultra")
-    {
-        return Err("不支持的雷达Bench模型或思考档位".to_string());
-    }
-    let mut url = reqwest::Url::parse(RADAR_API_URL).map_err(|error| error.to_string())?;
-    url.query_pairs_mut().append_pair("model", model).append_pair("effort", effort);
-    Ok(url)
-}
-
-#[tauri::command]
-async fn fetch_radar_bench_score(model: String, effort: String) -> Result<JsonValue, String> {
-    let url = radar_score_url(&model, &effort)?;
-    let response = RADAR_CLIENT.get_or_init(reqwest::Client::new)
-        .get(url)
-        .timeout(Duration::from_secs(15))
-        .send()
-        .await
-        .map_err(|error| format!("请求雷达Bench接口失败: {error}"))?;
-
-    if !response.status().is_success() {
-        return Err(format!(
-            "雷达Bench接口返回 HTTP {}",
-            response.status()
-        ));
-    }
-
-    response
-        .json::<JsonValue>()
-        .await
-        .map_err(|error| format!("解析雷达Bench数据失败: {error}"))
-}
-
 #[tauri::command]
 fn start_window_dragging(window: WebviewWindow) -> Result<(), String> {
     window.start_dragging().map_err(|e| e.to_string())
@@ -803,6 +763,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(UsageState::default())
+        .manage(codex_radar::RadarState::default())
         .invoke_handler(tauri::generate_handler![
             refresh_usage,
             get_cached_usage,
@@ -814,7 +775,8 @@ pub fn run() {
             clear_api_key_override,
             set_refresh_interval,
             set_notification_enabled,
-            fetch_radar_bench_score,
+            codex_radar::fetch_codex_radar_snapshot,
+            codex_radar::open_codex_radar_homepage,
             fetch_model_usage,
             start_window_dragging,
             start_window_resize,
@@ -907,9 +869,9 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        effective_base_url, fetch_radar_bench_score, validate_main_resize, normalize_optional_base_url,
-        radar_score_url, tray_menu_item_ids, tray_panel_position, usage_url, validate_api_key,
-        validate_base_url, RADAR_API_URL,
+        effective_base_url, validate_main_resize, normalize_optional_base_url,
+        tray_menu_item_ids, tray_panel_position, usage_url, validate_api_key,
+        validate_base_url,
     };
     use tauri::{PhysicalPosition, PhysicalSize};
 
@@ -1037,58 +999,6 @@ mod tests {
     fn resize_command_rejects_other_windows_and_invalid_directions() {
         assert!(validate_main_resize("orb", "SouthEast").is_err());
         assert!(validate_main_resize("main", "invalid").is_err());
-    }
-
-    #[test]
-    fn radar_bench_uses_public_score_endpoint() {
-        assert_eq!(
-            RADAR_API_URL,
-            "https://api.codexradar.com/api/v1/radar-bench-score"
-        );
-    }
-
-    #[test]
-    fn radar_bench_url_contains_only_the_selected_public_parameters() {
-        let url = radar_score_url("gpt-6.1-sol", "xhigh").unwrap();
-        assert_eq!(url.scheme(), "https");
-        assert_eq!(url.host_str(), Some("api.codexradar.com"));
-        assert_eq!(url.path(), "/api/v1/radar-bench-score");
-        assert_eq!(url.username(), "");
-        assert_eq!(url.password(), None);
-        assert_eq!(
-            url.query_pairs().collect::<Vec<_>>(),
-            vec![
-                ("model".into(), "gpt-6.1-sol".into()),
-                ("effort".into(), "xhigh".into()),
-            ]
-        );
-    }
-
-    #[test]
-    fn radar_bench_rejects_invalid_and_unsupported_selections() {
-        for (model, effort) in [
-            ("https://other.example/score", "max"),
-            ("gpt-6-astra&token=private", "max"),
-            ("gpt-6-astra", "unknown"),
-            ("gpt-6-luna", "ultra"),
-            ("gpt-5.6-luna", "ultra"),
-        ] {
-            assert!(radar_score_url(model, effort).is_err());
-        }
-    }
-
-    #[test]
-    #[ignore = "requires the live anonymous RadarBench service"]
-    fn radar_bench_live_public_transport() {
-        let data = tauri::async_runtime::block_on(fetch_radar_bench_score(
-            "gpt-6-astra".to_string(),
-            "xhigh".to_string(),
-        ))
-        .expect("the desktop transport should read the public score");
-        assert_eq!(data["model"], "gpt-6-astra");
-        assert_eq!(data["effort"], "xhigh");
-        assert_eq!(data["score_max"].as_f64(), Some(150.0));
-        assert!(data["statistics"]["sample_count"].as_u64().is_some());
     }
 
     #[test]

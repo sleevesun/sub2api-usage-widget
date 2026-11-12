@@ -20,13 +20,12 @@ A lightweight Tauri 2 tray widget for Windows and macOS. It reads the active Cod
 - Validates a custom key before saving it to Windows Credential Manager or macOS Keychain.
 - Falls back to `.codex/auth.json` when no custom key is stored.
 - Requests 28 days of usage history and presents today, this week by day, the last 15 days, or four natural weeks including the current week.
-- The model table follows the selected trend period and shows actual cost, request count and Token count together. Queries use inclusive dates in Asia/Shanghai; missing metrics display a dash, and failed queries offer a retry without showing another period's values.
+- The model table follows the selected trend period and shows actual cost, request count, Token count and nullable TPS. The current service does not provide model TPS; the column displays a dash instead of inferring speed from global duration. Queries use inclusive dates in Asia/Shanghai; failed queries offer a retry without showing another period's values.
 - Detects a custom API key's quota reset after a later refresh observes its used amount decrease; the service API does not provide an authoritative reset timestamp for every key.
-- Displays live RadarBench results in a six-model, six-effort matrix, replacing webmaster recommendations.
-- Each supported cell shows the score out of 150, average API-equivalent USD cost, and average elapsed minutes together. There are no metric tabs or submission counters.
-- Clicking a cell shows its task coverage and the known-sample denominators behind partial averages marked with `*`. The expanded matrix supports horizontal scrolling with the model column pinned.
-- Reads `https://api.codexradar.com/api/v1/radar-bench-score` anonymously through Rust with at most two concurrent requests. Sub2API credentials are never attached, and the floating orb does not request benchmark data. The browser preview proxies to the same endpoint.
-- Refreshes the matrix on the configured interval or manually. Failed reads retain the last successful cell, mark it as cached, and offer a retry.
+- Displays Codex Radar in a default matrix or three Top 5 rankings: score, score/USD and score/minute. Both views dynamically include only GPT-6 and GPT-6.1 families. The rankings default to the strict raw score > 90 filter; the expanded view shares this setting.
+- Matrix cells show Bench score out of 150, estimated USD cost and model execution minutes. Unknown results differ from tiers explicitly marked unsupported. Model versions descend, then highest score; known effort columns precede future tiers.
+- Reads `https://codexradar.com/` anonymously through Rust and parses `home-overview-data` → `scores.rows`, preserving available round metadata. No usage credentials are attached. The orb does not read benchmark data.
+- Caches complete snapshots for ten minutes and coalesces concurrent reads. Manual refresh bypasses the cache; failures preserve a complete previous round with a stale status. The shipped executable does not depend on a preview server.
 
 ## Codex Configuration
 
@@ -78,8 +77,8 @@ pnpm dev
 ```
 
 Browser preview usage data is static and does not read local Codex credentials.
-RadarBench data is live, using the Vite proxy to the same public score endpoint
-as the desktop app.
+Codex Radar data is live, using a development-only Vite adapter for the same
+public homepage as the desktop app.
 
 ## Build
 
@@ -101,21 +100,20 @@ Installers are written under `src-tauri/target/release/bundle/`.
 The generated NSIS installer is:
 
 ```text
-release/v0.3.0/Sub2API-Usage_0.3.0_x64-setup.exe
+release/v0.4.0/Sub2API-Usage_0.4.0_x64-setup.exe
 ```
 
 The portable executable is:
 
 ```text
-src-tauri/target/release/sub2api-usage-widget.exe
+release/v0.4.0/Sub2API-Usage_0.4.0_x64-portable.exe
 ```
 
-This release is distributed as an installer so future versions can be installed
-from inside the app. Existing portable users should exit the old app from the
-tray and install this version once. Running the raw executable remains possible,
-but accepting an update uses the installer and may migrate it to an installed
-copy. Use the installed shortcut afterwards to avoid reopening an old portable
-copy.
+The portable EXE runs directly without an installer. The same release includes
+a signed NSIS installer for the existing in-app updater. Accepting an in-app
+update uses this installer and may migrate a portable copy into an installed
+copy; use the updated shortcut afterwards rather than reopening an archived EXE.
+`SHA256SUMS` covers the portable EXE, installer, signature and update manifest.
 
 The previous portable build remains available for rollback:
 

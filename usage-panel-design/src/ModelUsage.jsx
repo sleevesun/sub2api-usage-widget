@@ -8,10 +8,10 @@ const exactCount = (value) => value === null ? "接口未提供" : new Intl.Numb
 export function ModelUsageTable({ models, unit }) {
   const maxCost = Math.max(0.000001, ...models.map((model) => model.cost ?? 0));
   return (
-    <div className="model-list">
-      <table className="model-table" aria-label="所选时段各模型的消费金额、请求数和 Token 量">
-        <colgroup><col className="model-name-column" /><col className="model-cost-column" /><col className="model-requests-column" /><col className="model-tokens-column" /></colgroup>
-        <thead><tr><th scope="col">模型</th><th scope="col">消费金额</th><th scope="col">请求数</th><th scope="col">Token</th></tr></thead>
+    <div className="model-list" role="region" tabIndex={0} aria-label="模型消费表，可横向滚动">
+      <table className="model-table" aria-label="所选时段各模型的消费金额、请求数、Token 量和 TPS">
+        <colgroup><col className="model-name-column" /><col className="model-cost-column" /><col className="model-requests-column" /><col className="model-tokens-column" /><col className="model-tps-column" /></colgroup>
+        <thead><tr><th scope="col">模型</th><th scope="col">消费金额</th><th scope="col">请求数</th><th scope="col">Token</th><th scope="col" title="本账号在所选时段的模型输出 Token / 秒">TPS</th></tr></thead>
         <tbody>
           {models.map((model) => (
             <tr key={model.name} data-model={model.name}>
@@ -24,6 +24,7 @@ export function ModelUsageTable({ models, unit }) {
               </td>
               <td title={`请求数：${exactCount(model.requests)}`}>{compactCount(model.requests)}</td>
               <td title={`Token：${exactCount(model.tokens)}`}>{compactCount(model.tokens)}</td>
+              <td title={model.tps == null ? "接口未提供模型 TPS" : `${model.tps} 输出 Token / 秒`} aria-label={model.tps == null ? "接口未提供模型 TPS" : undefined}>{model.tps == null ? "—" : model.tps.toFixed(1)}</td>
             </tr>
           ))}
         </tbody>

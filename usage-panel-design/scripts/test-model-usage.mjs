@@ -11,16 +11,18 @@ try {
 assert.equal(typeof normalizeModelStats, "function", "Model rows must retain cost, requests and tokens");
 
 const models = normalizeModelStats([
-  { model: "small", actual_cost: 0, cost: 10, requests: 0, total_tokens: 0 },
+  { model: "small", actual_cost: 0, cost: 10, requests: 0, total_tokens: 0, tps: null },
   { model_name: "large", actualCost: "2.5", requests: "12", totalTokens: "32000" },
   { model: "unknown" },
 ]);
 assert.deepEqual(models.map((model) => model.name), ["large", "small", "unknown"]);
-assert.deepEqual(models[0], { name: "large", cost: 2.5, requests: 12, tokens: 32000 });
-assert.deepEqual(models[1], { name: "small", cost: 0, requests: 0, tokens: 0 });
-assert.deepEqual(models[2], { name: "unknown", cost: null, requests: null, tokens: null });
+assert.deepEqual(models[0], { name: "large", cost: 2.5, requests: 12, tokens: 32000, tps: null });
+assert.deepEqual(models[1], { name: "small", cost: 0, requests: 0, tokens: 0, tps: null });
+assert.deepEqual(models[2], { name: "unknown", cost: null, requests: null, tokens: null, tps: null });
 assert.deepEqual(normalizeModelStats([{ model: "blank", actual_cost: " ", requests: null, total_tokens: "" }])[0],
-  { name: "blank", cost: null, requests: null, tokens: null }, "Blank metrics must not become zeros");
+  { name: "blank", cost: null, requests: null, tokens: null, tps: null }, "Blank metrics must not become zeros");
+
+assert.equal(normalizeModelStats([{model: "no-fabrication", output_tokens: 1000, requests: 10, average_duration_ms: 1000}])[0].tps, null, "Global or ambiguous timing cannot establish model TPS");
 
 const today = { key: "today:2026-10-13:2026-10-13", startDate: "2026-10-13", endDate: "2026-10-13" };
 const week = { key: "week:2026-10-12:2026-10-13", startDate: "2026-10-12", endDate: "2026-10-13" };
@@ -31,7 +33,7 @@ assert.throws(() => normalizeModelUsage({ ...envelope(today), modelStats: null }
 assert.deepEqual(normalizeModelUsage({
   ...envelope(today),
   modelStats: null,
-  dailyUsage: [{ date: "2026-10-12", actual_cost: 9 }, { date: "2026-10-13", requests: 0, actual_cost: 0, total_tokens: 0 }],
+  dailyUsage: [{ date: "2026-10-12", actual_cost: 9 }, { date: "2026-10-13", requests: 0, actual_cost: 0, total_tokens: 0, tps: null }],
 }, today), []);
 assert.throws(() => normalizeModelUsage({
   ...envelope(today),

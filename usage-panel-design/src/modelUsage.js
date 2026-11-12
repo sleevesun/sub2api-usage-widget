@@ -12,6 +12,8 @@ export function normalizeModelStats(stats) {
     cost: metricValue(model.actual_cost, model.actualCost, model.cost),
     requests: metricValue(model.requests),
     tokens: metricValue(model.total_tokens, model.totalTokens, model.tokens),
+    // /v1/usage has no model-scoped timing or documented output TPS.
+    tps: null,
   })).sort((a, b) => {
     if (a.cost === null) return b.cost === null ? 0 : 1;
     if (b.cost === null) return -1;

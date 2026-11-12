@@ -3,14 +3,13 @@
 ## Current delivery
 
 The app is connected to the public `sleevesun/sub2api-usage-widget` repository.
-Version 0.3.0 adds signed Tauri updates for Windows x64. Its stable endpoint is
+Version 0.3.0 introduced signed Tauri updates for Windows x64; v0.4.0 retains
+the same application identifier, signing public key and endpoint:
 `https://github.com/sleevesun/sub2api-usage-widget/releases/latest/download/latest.json`.
-The first release must be published before this endpoint works. Until then,
-checking reports that the service is unavailable; it does not report success.
-
-Existing users of the old portable EXE must install 0.3.0 once. Tell them to quit
-the old tray process, install `Sub2API-Usage_0.3.0_x64-setup.exe`, and use the
-installed shortcut. The update source must remain publicly downloadable without
+The endpoint follows the latest published stable Release. v0.3.0 can check,
+download and apply the higher signed release from its existing settings panel.
+Accepting an update uses the NSIS installer even when the old copy was portable.
+The update source must remain publicly downloadable without
 an embedded GitHub token. A machine that cannot reach GitHub may fail to check
 or download updates; changing download hosting later needs a deliberate migration.
 
@@ -63,14 +62,17 @@ real installer with the embedded public key. Verification also rejects a
 modified installer without executing it. Output:
 
 ```text
-release/v0.3.0/Sub2API-Usage_0.3.0_x64-setup.exe
-release/v0.3.0/Sub2API-Usage_0.3.0_x64-setup.exe.sig
-release/v0.3.0/latest.json
+release/v0.4.0/Sub2API-Usage_0.4.0_x64-portable.exe
+release/v0.4.0/Sub2API-Usage_0.4.0_x64-setup.exe
+release/v0.4.0/Sub2API-Usage_0.4.0_x64-setup.exe.sig
+release/v0.4.0/latest.json
+release/v0.4.0/SHA256SUMS
 ```
 
-Upload these exact three files to the matching `v0.3.0` Release. The manifest's
+Upload these exact five files to the matching `v0.4.0` Release. The manifest's
 installer URL includes the tag and the exact filename; renaming assets breaks
-updates. Keep all three from the same successful build.
+updates. Keep all assets from the same successful build. The portable EXE is
+copied from the executable used to generate the installer, without a second build.
 
 ## Subsequent releases
 
