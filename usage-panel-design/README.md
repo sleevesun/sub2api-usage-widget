@@ -100,13 +100,13 @@ Installers are written under `src-tauri/target/release/bundle/`.
 The generated NSIS installer is:
 
 ```text
-release/v0.4.1/Sub2API-Usage_0.4.1_x64-setup.exe
+release/v0.4.2/Sub2API-Usage_0.4.2_x64-setup.exe
 ```
 
 The portable executable is:
 
 ```text
-release/v0.4.1/Sub2API-Usage_0.4.1_x64-portable.exe
+release/v0.4.2/Sub2API-Usage_0.4.2_x64-portable.exe
 ```
 
 The portable EXE runs directly without an installer. The same release includes
@@ -128,9 +128,17 @@ following command when the panel should open immediately for manual testing:
 .\src-tauri\target\release\sub2api-usage-widget.exe --show
 ```
 
+## Local Codex TPS
+
+The model-consumption TPS column supports opt-in local Codex sampling. Expand
+“本机 Codex TPS” below the model table, enable it and restart Codex. TPS includes
+network and first-token waiting and uses new complete HTTP/SSE samples; it is
+independent of account-wide consumption. See [Local Codex TPS](docs/local-codex-tps.md)
+for scope, privacy, reversible configuration and verification.
+
 ## In-app updates (Windows)
 
-Version 0.4.1 checks shortly after startup and every thirty minutes while the
+Version 0.4.1 and later check shortly after startup and every thirty minutes while the
 main window is visible. Failed checks retry after five minutes; foreground and
 network recovery events also recheck after that interval. A settings badge and
 main-panel notice show discovered updates, and open the update settings directly.

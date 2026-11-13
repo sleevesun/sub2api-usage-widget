@@ -36,12 +36,13 @@ import {
   setNotificationEnabled,
   setRefreshInterval,
   showMainWindow,
-  moveOrbWindow,
+  startOrbDragging,
 } from "./tauriBridge";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import RadarBench from "./RadarBench.jsx";
 import useRadarBench from "./useRadarBench";
 import OrbVisual, { describeOrb } from "./OrbVisual.jsx";
+import { createOrbDragHandlers } from "./orbDrag.js";
 import WindowResizeHandles from "./WindowResizeHandles.jsx";
 import WindowHeader from "./WindowHeader.jsx";
 import { loadInitialUsage } from "./usageStartup.js";
@@ -720,11 +721,25 @@ function SettingsPanel({
 
 function OrbWindow({ usage, hasUsage, error, onOpenMain }) {
   const orbWindow = useMemo(() => getCurrentWindow(), []);
-  const dragStartRef = useRef({ x: 0, y: 0, moved: false, dragging: false });
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const drag = useMemo(() => createOrbDragHandlers({
+    startDragging: startOrbDragging,
+    onClick: () => {
+      if (!menuRef.current) return onOpenMain();
+    },
+    onError: (error) => console.error("[orb] pointer action failed:", error),
+  }), [onOpenMain]);
   const orbProps = { percent: quotaRemainingPercent(usage), mode: usage.mode, hasUsage, error };
   const orb = describeOrb(orbProps);
+
+  useEffect(() => {
+    window.addEventListener("blur", drag.cancel);
+    return () => {
+      window.removeEventListener("blur", drag.cancel);
+      drag.cancel();
+    };
+  }, [drag]);
 
   useEffect(() => {
     if (!hasUsage) return undefined;
@@ -748,50 +763,10 @@ function OrbWindow({ usage, hasUsage, error, onOpenMain }) {
     };
   }, [menuOpen]);
 
-  const onPointerDown = (e) => {
-    if (e.button !== 0) return;
-    dragStartRef.current = { x: e.clientX, y: e.clientY, moved: false, dragging: true };
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-  };
-
-  const onPointerMove = async (e) => {
-    const s = dragStartRef.current;
-    if (!s.dragging) return;
-    if (!s.moved) {
-      if (Math.abs(e.clientX - s.x) > 4 || Math.abs(e.clientY - s.y) > 4) s.moved = true;
-    }
-    if (s.moved) {
-      const dx = e.clientX - s.x;
-      const dy = e.clientY - s.y;
-      s.x = e.clientX;
-      s.y = e.clientY;
-      try {
-        await moveOrbWindow(dx, dy);
-      } catch (err) {
-        console.error("[orb] moveOrbWindow failed:", err);
-      }
-    }
-  };
-
-  const onPointerUp = async () => {
-    const wasMoved = dragStartRef.current.moved;
-    dragStartRef.current.dragging = false;
-    if (!wasMoved && !menuOpen) {
-      console.log("[orb] 左键单击 → openMain");
-      try {
-        await onOpenMain();
-      } catch (err) {
-        console.error("[orb] onOpenMain 失败:", err);
-      }
-    } else if (wasMoved) {
-      console.log("[orb] 拖拽结束，不打开主面板");
-    }
-  };
-
   const onContextMenu = (e) => {
     console.log("[orb] 右键 → 切换菜单");
     e.preventDefault();
-    dragStartRef.current.dragging = false;
+    drag.cancel();
     setMenuOpen((cur) => !cur);
   };
 
@@ -827,10 +802,11 @@ function OrbWindow({ usage, hasUsage, error, onOpenMain }) {
         tabIndex={0}
         aria-label={`打开 Sub2API 用量面板；${orb.description}`}
         title={orb.description}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerDown={drag.onPointerDown}
+        onPointerMove={drag.onPointerMove}
+        onPointerUp={drag.onPointerUp}
+        onPointerCancel={drag.onPointerCancel}
+        onLostPointerCapture={drag.onLostPointerCapture}
         onContextMenu={onContextMenu}
       >
         <OrbVisual {...orbProps} />

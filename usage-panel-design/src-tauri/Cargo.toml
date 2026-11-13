@@ -1,6 +1,6 @@
 [package]
 name = "sub2api-usage-widget"
-version = "0.4.1"
+version = "0.4.2"
 description = "A lightweight Sub2API usage tray widget"
 authors = ["Sub2API Usage Widget"]
 edition = "2021"
@@ -13,20 +13,30 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 dirs = "6"
 futures-util = "0.3"
+flate2 = "1"
+http-body-util = "0.1"
+hyper = { version = "1", features = ["http1", "server"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
 keyring = { version = "3.6", features = ["apple-native", "windows-native"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 scraper = { version = "0.27", default-features = false }
 tauri = { version = "2.11", features = ["tray-icon"] }
 tauri-plugin-notification = "2"
 tauri-plugin-process = "=2.3.1"
 tauri-plugin-updater = "=2.10.1"
-tokio = { version = "1", features = ["time"] }
+tokio = { version = "1", features = ["time", "net", "rt", "sync"] }
 toml = "0.8"
+toml_edit = "=0.20.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
 
 [dev-dependencies]
 base64 = "0.22"

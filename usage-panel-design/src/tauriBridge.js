@@ -58,6 +58,8 @@ export const onOpenSettings = (handler) => listen("open-settings", () => handler
 export const fetchCodexRadarSnapshot = (force = false) => invoke("fetch_codex_radar_snapshot", { force });
 export const openCodexRadarHomepage = () => invoke("open_codex_radar_homepage");
 export const fetchModelUsage = (startDate, endDate) => invoke("fetch_model_usage", { startDate, endDate });
-export const moveOrbWindow = (dx, dy) => invoke("move_orb_window", { deltaX: dx, deltaY: dy });
+export const getLocalCodexTps = (startDate, endDate) => invoke("get_local_codex_tps", { startDate, endDate });
+export const setLocalCodexTpsEnabled = (enabled) => invoke("set_local_codex_tps_enabled", { enabled });
 export const startWindowDragging = () => invoke("start_window_dragging");
+export const startOrbDragging = () => invoke("start_orb_dragging");
 export const startWindowResize = (direction) => invoke("start_window_resize", { direction });

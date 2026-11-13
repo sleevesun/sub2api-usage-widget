@@ -3,7 +3,7 @@
 ## Current delivery
 
 The app is connected to the public `sleevesun/sub2api-usage-widget` repository.
-Version 0.3.0 introduced signed Tauri updates for Windows x64; v0.4.1 retains
+Version 0.3.0 introduced signed Tauri updates for Windows x64; v0.4.2 retains
 the same application identifier, signing public key and endpoint:
 `https://github.com/sleevesun/sub2api-usage-widget/releases/latest/download/latest.json`.
 The endpoint follows the latest published stable Release. v0.3.0 can check,
@@ -62,14 +62,14 @@ real installer with the embedded public key. Verification also rejects a
 modified installer without executing it. Output:
 
 ```text
-release/v0.4.1/Sub2API-Usage_0.4.1_x64-portable.exe
-release/v0.4.1/Sub2API-Usage_0.4.1_x64-setup.exe
-release/v0.4.1/Sub2API-Usage_0.4.1_x64-setup.exe.sig
-release/v0.4.1/latest.json
-release/v0.4.1/SHA256SUMS
+release/v0.4.2/Sub2API-Usage_0.4.2_x64-portable.exe
+release/v0.4.2/Sub2API-Usage_0.4.2_x64-setup.exe
+release/v0.4.2/Sub2API-Usage_0.4.2_x64-setup.exe.sig
+release/v0.4.2/latest.json
+release/v0.4.2/SHA256SUMS
 ```
 
-Upload these exact five files to the matching `v0.4.1` Release. The manifest's
+Upload these exact five files to the matching `v0.4.2` Release. The manifest's
 installer URL includes the tag and the exact filename; renaming assets breaks
 updates. Keep all assets from the same successful build. The portable EXE is
 copied from the executable used to generate the installer, without a second build.

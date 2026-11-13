@@ -26,6 +26,27 @@ try {
 
   assert.ok(html.includes("接口未提供模型 TPS"));
 
+  const localHtml = renderToStaticMarkup(createElement(ModelUsageTable, {
+    unit: "USD", tpsEnabled: true,
+    models: [{ name: "gpt-6.1-sol", cost: 2, requests: 3, tokens: 500, tps: 50, tpsSamples: 2 }],
+  }));
+  assert.ok(localHtml.includes("本机 Codex"), "TPS must identify the local source rather than imply account-wide speed");
+  assert.ok(localHtml.includes("50.0"));
+  assert.ok(localHtml.includes("2 样本"));
+  const { default: LocalTpsControl } = await server.ssrLoadModule("/src/LocalTpsControl.jsx");
+  const idleControl = renderToStaticMarkup(createElement(LocalTpsControl, { native: true,
+    state: { status: "disabled", enabled: false, models: [], recordedSamples: 0 } }));
+  assert.ok(idleControl.includes("启用本机 TPS"));
+  assert.ok(idleControl.includes("重启 Codex"));
+  assert.ok(idleControl.includes("不保存对话正文"));
+  const activeControl = renderToStaticMarkup(createElement(LocalTpsControl, { native: true,
+    state: { status: "collecting", enabled: true, models: [{ samples: 2 }], recordedSamples: 2, lastReceivedAtMs: Date.now() } }));
+  assert.ok(activeControl.includes("停止采样并恢复配置"));
+  assert.ok(activeControl.includes("2 个时段内样本"));
+  const previewControl = renderToStaticMarkup(createElement(LocalTpsControl, { native: false,
+    state: { status: "preview", enabled: false, models: [], recordedSamples: 0 } }));
+  assert.ok(!previewControl.includes("<button"));
+
   const preview = createPreviewUsage();
   const todayKey = dateKeyInTimezone(new Date(preview.fetchedAtMs));
   for (const mode of ["today", "week", "days", "weeks"]) {

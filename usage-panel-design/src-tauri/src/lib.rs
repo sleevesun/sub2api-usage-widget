@@ -1,4 +1,6 @@
 mod codex_radar;
+mod orb_drag;
+mod local_tps;
 
 use keyring::{Entry, Error as KeyringError};
 use serde::Serialize;
@@ -549,6 +551,12 @@ fn start_window_dragging(window: WebviewWindow) -> Result<(), String> {
     window.start_dragging().map_err(|e| e.to_string())
 }
 
+// Queue the native operation from outside WebView2's synchronous IPC callback.
+#[tauri::command]
+async fn start_orb_dragging(window: WebviewWindow) -> Result<(), String> {
+    orb_drag::start(window)
+}
+
 fn validate_main_resize(label: &str, direction: &str) -> Result<(), String> {
     if label != "main" {
         return Err("仅允许调整主面板大小".to_string());
@@ -568,21 +576,6 @@ fn start_window_resize(window: tauri::Window, direction: String) -> Result<(), S
     let direction = serde_json::from_value(JsonValue::String(direction))
         .map_err(|_| "无效的窗口调整方向".to_string())?;
     window.start_resize_dragging(direction).map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn move_orb_window(window: WebviewWindow, delta_x: f64, delta_y: f64) -> Result<(), String> {
-    if window.label() != "orb" {
-        return Err("仅允许移动 orb 窗口".to_string());
-    }
-    let Ok(current_pos) = window.outer_position() else {
-        return Err("获取窗口位置失败".to_string());
-    };
-    let new_x = (current_pos.x as f64 + delta_x).round() as i32;
-    let new_y = (current_pos.y as f64 + delta_y).round() as i32;
-    window
-        .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: new_x, y: new_y }))
-        .map_err(|e| e.to_string())
 }
 
 fn position_near_tray(window: &WebviewWindow, cursor: PhysicalPosition<f64>) {
@@ -778,14 +771,19 @@ pub fn run() {
             codex_radar::fetch_codex_radar_snapshot,
             codex_radar::open_codex_radar_homepage,
             fetch_model_usage,
+            local_tps::get_local_codex_tps,
+            local_tps::set_local_codex_tps_enabled,
             start_window_dragging,
+            start_orb_dragging,
             start_window_resize,
-            move_orb_window,
             orb_open_settings,
             orb_hide,
             minimize_main_window_command
         ])
         .setup(|app| {
+            app.manage(std::sync::Arc::new(local_tps::LocalTps::new(
+                app.path().app_config_dir().ok(), codex_home().ok(),
+            )));
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
