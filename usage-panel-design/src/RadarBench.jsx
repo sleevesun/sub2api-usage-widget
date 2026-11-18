@@ -1,22 +1,51 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowClockwise, ArrowSquareOut, ArrowsOut, ChartBar, Coins, GridFour, Lightning, Trophy, X } from "@phosphor-icons/react";
-import { numeric, scored, keyOf, scoreText, costText, timeText, modelName, modelParts, dateText, modelsInOrder, rankRows, effortColumns, resolveRadarSelection } from "./radarBench.js";
+import { ArrowClockwise, ArrowSquareOut, ArrowsOut, CaretDown, ChartBar, Coins, GridFour, Lightning, SortDescending, Trophy, X } from "@phosphor-icons/react";
+import { numeric, scored, keyOf, scoreText, costText, timeText, modelName, modelParts, dateText, matrixModels, rankRows, effortColumns, scoreHeatmap, resolveRadarSelection } from "./radarBench.js";
 import "./radarBench.css";
 import { openCodexRadarHomepage, runningInTauriSync } from "./tauriBridge.js";
 
 const MODEL_SCOPE = "GPT-6 / 6.1 / 6.2";
 
-function Matrix({ snapshot, selected, onSelect }) {
-  const models = modelsInOrder(snapshot.rows);
+function MatrixControls({ columns, order, onOrder, mode, onMode, heatmap }) {
+  return <div className="rh-controls">
+    <label className="rh-order">
+      <SortDescending size={15} aria-hidden="true" /><span>排序</span>
+      <span className="rh-select"><select value={order} onChange={(event) => onOrder(event.target.value)}>
+        <option value="best">模型最高分</option>
+        <option value="version">模型版本</option>
+        <optgroup label="按档位得分">
+          {columns.map((effort) => <option key={effort} value={`effort:${effort}`}>{effort.toUpperCase()} 得分</option>)}
+        </optgroup>
+      </select><CaretDown size={11} aria-hidden="true" /></span>
+    </label>
+    <div className="rh-legend" role="img" aria-label={`得分色阶，${heatmap.min} 至 ${heatmap.max} 分`}>
+      <span>{heatmap.min}</span>
+      <div className="rh-swatches">{heatmap.bands.map(({ level, label }) => <i key={level} data-heat={level} title={label} aria-hidden="true" />)}</div>
+      <span>{heatmap.max}</span>
+    </div>
+    <div className="rh-variants" role="group" aria-label="得分色阶模式">
+      <span>色阶</span>
+      {[{ id: "fixed", label: "固定量尺" }, { id: "round", label: "本轮分布" }].map(({ id, label }) =>
+        <button key={id} type="button" aria-pressed={mode === id} onClick={() => onMode(id)}>{label}</button>)}
+    </div>
+  </div>;
+}
+
+function Matrix({ snapshot, selected, onSelect, order, onOrder, mode, onMode }) {
   const columns = effortColumns(snapshot);
+  const activeOrder = order.startsWith("effort:") && !columns.includes(order.slice(7)) ? "best" : order;
+  const models = matrixModels(snapshot.rows, activeOrder);
+  const heatmap = scoreHeatmap(snapshot.rows, mode);
   const cells = new Map(snapshot.rows.map((row) => [keyOf(row), row]));
   const unsupported = new Set((snapshot.unsupported || []).map(keyOf));
-  const bestKey = rankRows(snapshot.rows)[0] ? keyOf(rankRows(snapshot.rows)[0]) : null;
+  const [best] = rankRows(snapshot.rows, "score", { limit: 1 });
+  const bestKey = best ? keyOf(best) : null;
   return <>
+    <MatrixControls columns={columns} order={activeOrder} onOrder={onOrder} mode={mode} onMode={onMode} heatmap={heatmap} />
     <div className="crp-matrix-scroll" role="region" tabIndex={0} aria-label="模型与推理强度矩阵，可横向滚动">
       <table className="crp-matrix" style={{ "--crp-matrix-min": `${80 + columns.length * 81}px` }} aria-label={`${MODEL_SCOPE} 模型矩阵：Bench 满分150，费用美元，耗时分钟`}>
         <colgroup><col className="crp-model-col" />{columns.map((effort) => <col key={effort} />)}</colgroup>
-        <thead><tr><th scope="col">模型 / 档位</th>{columns.map((effort) => <th scope="col" key={effort}>{effort.toUpperCase()}</th>)}</tr></thead>
+        <thead><tr><th scope="col">模型 / 档位</th>{columns.map((effort) => <th scope="col" key={effort} aria-sort={activeOrder === `effort:${effort}` ? "descending" : undefined}>{effort.toUpperCase()}</th>)}</tr></thead>
         <tbody>{models.map((model) => {
           const parts = modelParts(model);
           return <tr key={model}>
@@ -25,7 +54,7 @@ function Matrix({ snapshot, selected, onSelect }) {
               const key = `${model}/${effort}`, row = cells.get(key), valid = scored(row);
               if (!row && unsupported.has(key)) return <td key={key}><div className="crp-unsupported" aria-label={`${modelName(model)} ${effort}：无此档位`}><span>—</span><small>无此档位</small></div></td>;
               const description = `${modelName(model)} ${effort}，${valid ? `Bench ${scoreText(row.score150)} / 150` : "未测或结果未知"}，估算费用 ${costText(row?.cost_usd)}，耗时 ${timeText(row)}`;
-              return <td key={key}><button className={`crp-cell${valid ? "" : " is-ungraded"}`} type="button" data-cell={key} aria-label={description} title={description} aria-pressed={selected === key} onClick={() => onSelect(row || { model, effort })}>
+              return <td key={key}><button className={`crp-cell${valid ? "" : " is-ungraded"}`} type="button" data-cell={key} data-heat={heatmap.level(row?.score150)} aria-label={description} title={description} aria-pressed={selected === key} onClick={() => onSelect(row || { model, effort })}>
                 <span className="crp-cell-score"><strong>{valid ? scoreText(row.score150) : "待评分"}</strong>{key === bestKey && <i aria-label="本轮最高分" />}</span>
                 <span className="crp-score-track" aria-hidden="true"><span style={{ width: `${valid ? Math.min(100, Math.max(0, row.score150 / 150 * 100)) : 0}%` }} /></span>
                 <span className="crp-cell-cost">{costText(row?.cost_usd)}</span><span className="crp-cell-time">{timeText(row)}</span>
@@ -96,6 +125,8 @@ export default function RadarBench({ bench, initialView = "matrix" }) {
   const [view, setView] = useState(initialView);
   const [expanded, setExpanded] = useState(false);
   const [onlyAbove90, setOnlyAbove90] = useState(true);
+  const [matrixOrder, setMatrixOrder] = useState("best");
+  const [heatMode, setHeatMode] = useState("fixed");
   const [selected, setSelected] = useState(null);
   const dialogRef = useRef(null);
   const snapshot = bench.snapshot;
@@ -119,7 +150,7 @@ export default function RadarBench({ bench, initialView = "matrix" }) {
     })}</div>{view === "ranking" && <label className="crp-ranking-filter"><input type="checkbox" checked={onlyAbove90} onChange={(event) => setOnlyAbove90(event.target.checked)} /><span>智商 &gt; 90</span></label>}<div className="crp-scope"><span className="crp-count">{MODEL_SCOPE}</span><span>Bench 满分 <b>150</b></span></div></div>
     {status.type === "stale" && <p className="crp-feedback" role="status">本次读取失败，暂用 {dateText(snapshot.fetched_at)} 获取的整轮缓存。</p>}
     <div role="tabpanel" id={`crp-${scope}-panel`} aria-labelledby={`crp-${scope}-${view}`}>
-      {!snapshot ? <div className="crp-empty"><strong>{loading ? "正在读取官网评测数据…" : "暂时无法读取官网数据"}</strong><p>{loading ? "分数、费用和耗时将同步更新" : bench.error || "尚无可用缓存，请稍后刷新"}</p>{!loading && <button type="button" onClick={() => { void bench.refresh(); }}>重新读取</button>}</div> : !snapshot.rows.length ? <div className="crp-empty">本轮暂无 {MODEL_SCOPE} 系列数据</div> : view === "matrix" ? <Matrix snapshot={snapshot} selected={activeKey} onSelect={setSelected} /> : <Rankings rows={rankingRows} onlyAbove90={onlyAbove90} selected={activeKey} onSelect={setSelected} />}
+      {!snapshot ? <div className="crp-empty"><strong>{loading ? "正在读取官网评测数据…" : "暂时无法读取官网数据"}</strong><p>{loading ? "分数、费用和耗时将同步更新" : bench.error || "尚无可用缓存，请稍后刷新"}</p>{!loading && <button type="button" onClick={() => { void bench.refresh(); }}>重新读取</button>}</div> : !snapshot.rows.length ? <div className="crp-empty">本轮暂无 {MODEL_SCOPE} 系列数据</div> : view === "matrix" ? <Matrix snapshot={snapshot} selected={activeKey} onSelect={setSelected} order={matrixOrder} onOrder={setMatrixOrder} mode={heatMode} onMode={setHeatMode} /> : <Rankings rows={rankingRows} onlyAbove90={onlyAbove90} selected={activeKey} onSelect={setSelected} />}
     </div>
     <Selection row={row} />
     <footer className="crp-source"><p>“智商”仅为 Bench 得分的通俗叫法，并非人类 IQ。</p><div><span>{row?.cost_kind === "api_equivalent_estimate" ? "API 等价估算费用" : "官网估算费用"} · 模型执行耗时</span><span>{numeric(snapshot?.metadata?.graded) && numeric(snapshot?.metadata?.expected) ? `判分 ${snapshot.metadata.graded}/${snapshot.metadata.expected}` : "官网未提供判分进度"}</span></div></footer>

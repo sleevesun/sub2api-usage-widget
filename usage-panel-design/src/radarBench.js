@@ -64,6 +64,36 @@ export function effortColumns(snapshot) {
   return [...RADAR_EFFORTS, ...[...all].filter((effort) => !RADAR_EFFORTS.includes(effort)).sort()];
 }
 
+export function matrixModels(rows, order = "best") {
+  const models = modelsInOrder(rows);
+  if (order === "version") return models;
+  const scores = new Map();
+  for (const row of rows) {
+    if (scored(row) && (order === "best" || order === `effort:${row.effort}`)) {
+      scores.set(row.model, Math.max(scores.get(row.model) ?? -1, row.score150));
+    }
+  }
+  return models.sort((a, b) => (scores.get(b) ?? -1) - (scores.get(a) ?? -1));
+}
+
+export function scoreHeatmap(rows, mode = "fixed") {
+  const scores = rows.filter(scored).map((row) => row.score150);
+  const relative = mode === "round" && scores.length > 0;
+  const min = relative ? Math.min(...scores) : 0;
+  const max = relative ? Math.max(...scores) : 150;
+  const stops = relative ? Array.from({ length: 6 }, (_, i) => min + (max - min) * (i / 5)) : [0, 60, 90, 110, 130, 150];
+  const label = (value) => value.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+  return {
+    min: label(min), max: label(max),
+    level: (score) => measurement(score) === null ? undefined
+      : min === max ? 2 : Math.max(0, Math.min(4, stops.findLastIndex((stop) => score >= stop))),
+    bands: min === max ? [{ level: 2, label: `${label(min)} 分` }]
+      : stops.slice(0, -1).map((stop, i) => ({
+        level: i, label: `${label(stop)} – ${i === 4 ? "" : "< "}${label(stops[i + 1])} 分`,
+      })),
+  };
+}
+
 export function rankRows(rows, type = "score", { onlyAbove90 = false, limit = 5 } = {}) {
   const eligible = rows.filter((row) => scored(row) && (!onlyAbove90 || row.score150 > 90))
     .filter((row) => type === "value" ? numeric(row.cost_usd) && row.cost_usd > 0

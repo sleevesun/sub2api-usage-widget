@@ -21,6 +21,23 @@ assert.equal(data.rows.find(r => r.model === "gpt-6-sol").score150, null);
 assert.deepEqual(data.unsupported, [{model:"gpt-6-luna",effort:"ultra"}]);
 assert.deepEqual(effortColumns(data), ["ultra","max","xhigh","high","medium","low","experimental"]);
 assert.equal(data.metadata.graded, undefined, "Missing grading metadata must not imply completion");
+const matrixRows = [
+ row("gpt-6-astra", "high", 130), row("gpt-6-astra", "max", 90),
+ row("gpt-6.2-sol", "high", 100), row("gpt-6.2-sol", "max", 90),
+ row("gpt-6.1-terra", "max", 90.00001), row("gpt-6.1-sol", "max", null),
+ row("gpt-6-luna", "high", 92), row("gpt-6-luna", "max", 0),
+];
+assert.deepEqual(radar.matrixModels(matrixRows), ["gpt-6-astra", "gpt-6.2-sol", "gpt-6-luna", "gpt-6.1-terra", "gpt-6.1-sol"]);
+assert.deepEqual(radar.matrixModels(matrixRows, "effort:max"), ["gpt-6.1-terra", "gpt-6.2-sol", "gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol"], "Compare raw scores and keep version order for ties");
+assert.deepEqual(radar.matrixModels(matrixRows, "version"), modelsInOrder(matrixRows));
+const fixed = radar.scoreHeatmap(matrixRows);
+assert.deepEqual([0, 59.999, 60, 89.9999, 90, 110, 130, 150].map(fixed.level), [0, 0, 1, 1, 2, 3, 4, 4]);
+assert.equal(fixed.level(null), undefined);
+const distribution = radar.scoreHeatmap([row("gpt-6-astra", "high", 90), row("gpt-6-astra", "max", 100)], "round");
+assert.deepEqual([90, 91.99999, 92, 96, 100].map(distribution.level), [0, 0, 1, 3, 4]);
+const tied = radar.scoreHeatmap([row("gpt-6-astra", "high", 90), row("gpt-6-astra", "max", null)], "round");
+assert.equal(tied.level(90), 2);
+assert.equal(tied.bands.length, 1);
 assert.throws(() => normalizeRadarSnapshot({rows: null}), /格式/);
 assert.throws(() => normalizeRadarSnapshot(snapshot([row("gpt-6-sol","low",10),row("GPT-6-SOL","LOW",20)])), /重复/);
 assert.equal(normalizeRadarSnapshot(snapshot([row(" GPT-6-SOL ", " HIGH ", 91)])).rows[0].model,"gpt-6-sol");

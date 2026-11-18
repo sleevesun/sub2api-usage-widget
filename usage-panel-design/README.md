@@ -100,13 +100,13 @@ Installers are written under `src-tauri/target/release/bundle/`.
 The generated NSIS installer is:
 
 ```text
-release/v0.4.3/Sub2API-Usage_0.4.3_x64-setup.exe
+release/v0.4.4/Sub2API-Usage_0.4.4_x64-setup.exe
 ```
 
 The portable executable is:
 
 ```text
-release/v0.4.3/Sub2API-Usage_0.4.3_x64-portable.exe
+release/v0.4.4/Sub2API-Usage_0.4.4_x64-portable.exe
 ```
 
 The portable EXE runs directly without an installer. Clients with the in-place

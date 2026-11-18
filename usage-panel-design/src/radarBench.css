@@ -1,6 +1,43 @@
 /* Codex Radar inherits the usage panel theme. */
 .crp { --crp-secondary: #6e7078; --crp-tile: #f7f9fc; --crp-blue: #1b77cb; margin: 18px 0 20px; min-width: 0; }
 .preview-stage[data-theme="dark"] .crp { --crp-secondary: #a5a7b2; --crp-tile: #24272d; --crp-blue: #5eaeff; }
+.crp {
+  --rh-0: #edf4fb; --rh-1: #d8e9f8; --rh-2: #b7d6f2; --rh-3: #78afe3; --rh-4: #175998;
+  --rh-ink: #102e53; --rh-meta: #214469; --rh-track: #234c6e26;
+}
+.preview-stage[data-theme="dark"] .crp {
+  --rh-0: #222d3a; --rh-1: #263a51; --rh-2: #2b4968; --rh-3: #285780; --rh-4: #216599;
+  --rh-ink: #f3f8ff; --rh-meta: #eef5ff; --rh-track: #cce4ff38;
+}
+.crp [data-heat="0"] { --rh-fill: var(--rh-0); }
+.crp [data-heat="1"] { --rh-fill: var(--rh-1); }
+.crp [data-heat="2"] { --rh-fill: var(--rh-2); }
+.crp [data-heat="3"] { --rh-fill: var(--rh-3); }
+.crp [data-heat="4"] { --rh-fill: var(--rh-4); --rh-ink: #fff; --rh-meta: #fff; --rh-track: #ffffff40; }
+.crp .crp-cell[data-heat] { background: var(--rh-fill); }
+.crp .crp-cell[data-heat]:hover { border-color: var(--rh-ink); }
+.crp .crp-cell[data-heat][aria-pressed="true"] { border-color: var(--rh-ink); box-shadow: inset 0 0 0 1px var(--rh-ink); }
+.crp [data-heat] .crp-cell-score strong { color: var(--rh-ink); letter-spacing: 0; }
+.crp [data-heat] .crp-cell-cost, .crp [data-heat] .crp-cell-time { color: var(--rh-meta); }
+.crp [data-heat] .crp-score-track { background: var(--rh-track); }
+.crp [data-heat] .crp-score-track > span, .crp [data-heat] .crp-cell-score i { background: var(--rh-ink); }
+.crp .crp-matrix th[aria-sort="descending"] { background: var(--water-soft); color: var(--crp-blue); }
+
+.rh-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 7px 13px; margin-bottom: 8px; color: var(--crp-secondary); font-size: 10px; }
+.rh-order, .rh-legend, .rh-swatches, .rh-variants { display: inline-flex; align-items: center; gap: 5px; }
+.rh-order { white-space: nowrap; }
+.rh-select { position: relative; display: inline-flex; align-items: center; }
+.rh-select select { appearance: none; min-height: 27px; max-width: 140px; padding: 3px 23px 3px 7px; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--text); background: var(--surface); font: inherit; cursor: pointer; }
+.rh-select svg { position: absolute; right: 6px; pointer-events: none; }
+.rh-select select:focus-visible { outline: 2px solid var(--water); outline-offset: 1px; }
+.rh-legend { font-variant-numeric: tabular-nums; }
+.rh-swatches { gap: 2px; }
+.rh-swatches i { width: 13px; height: 10px; border: 1px solid var(--line-strong); border-radius: 2px; background: var(--rh-fill); }
+.rh-variants { margin-left: auto; gap: 3px; min-height: 26px; padding: 2px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-2); }
+.rh-variants > span { padding: 0 4px; }
+.rh-variants button { padding: 3px 6px; border-radius: 4px; white-space: nowrap; color: var(--crp-secondary); font: inherit; }
+.rh-variants button[aria-pressed="true"] { color: var(--crp-blue); background: var(--surface); box-shadow: 0 0 0 1px var(--line); font-weight: 600; }
+@container crp (max-width: 470px) { .rh-variants { margin-left: 0; } }
 .crp button:focus-visible, .crp a:focus-visible, .crp-matrix-scroll:focus-visible { outline: 2px solid var(--water); outline-offset: 2px; }
 .crp-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 0 3px; }
 .crp-title, .crp-actions, .crp-title > span, .crp-actions > button, .crp-actions > a { display: flex; align-items: center; }

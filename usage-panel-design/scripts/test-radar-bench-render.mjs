@@ -20,7 +20,13 @@ try {
  assert.match(matrix,/aria-selected="true"[^>]*>.*?矩阵视图/);
  assert.ok(!matrix.includes("gpt-5.6")&&!matrix.includes("原型"));
  assert.ok(matrix.includes('data-cell="gpt-6.2-astra/max"')&&matrix.includes('data-cell="gpt-6.2-sol/high"'));
+ for (const text of ["模型最高分", "模型版本", "MAX 得分", "固定量尺", "本轮分布"]) assert.ok(matrix.includes(text), text);
+ assert.match(matrix, /data-cell="gpt-6\.1-terra\/max" data-heat="3"/);
+ assert.match(matrix, /<tbody><tr><th scope="row"><strong>Terra<\/strong>/);
+ assert.doesNotMatch(matrix, /data-cell="gpt-6-astra\/max" data-heat=/);
+ assert.doesNotMatch(matrix, /class="crp-unsupported"[^>]*data-heat=/);
  const ranking=render({initialView:"ranking"});
+ assert.ok(!ranking.includes("固定量尺"));
  for(const text of ["纯智商榜","性价比榜","效率榜","智商 &gt; 90","checked"]) assert.ok(ranking.includes(text),text);
  assert.ok(!ranking.includes('data-model="gpt-6-luna"'),"The default ranking filter excludes low scores");
  assert.equal((ranking.match(/data-model="gpt-6\.2-astra"/g)||[]).length,3);
