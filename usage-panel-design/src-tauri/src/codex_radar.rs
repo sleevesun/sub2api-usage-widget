@@ -131,7 +131,7 @@ fn target_model(model: &str) -> bool {
     let Some(suffix) = lower.strip_prefix("gpt-6") else {
         return false;
     };
-    suffix.is_empty() || suffix.starts_with('-') || suffix == ".1" || suffix.starts_with(".1-")
+    matches!(suffix.split('-').next(), Some("" | ".1" | ".2"))
 }
 
 fn normalized_heading(heading: &str) -> String {
@@ -449,7 +449,10 @@ mod tests {
                 {"model":"gpt-6.1-new-suffix","effort":"max","score150":null},
                 {"model":"gpt-60-sol","effort":"high","score150":100},
                 {"model":"gpt-6.10-sol","effort":"high","score150":100},
-                {"model":"gpt-6.2-sol","effort":"high","score150":100},
+                {"model":" GPT-6.2-SOL ","effort":"high","score150":100},
+                {"model":"gpt-6.2-astra","effort":"ultra"},
+                {"model":"gpt-6.20-sol","effort":"high","score150":100},
+                {"model":"gpt-6.2.1-sol","effort":"high","score150":100},
                 {"model":"gpt-5.6-sol","effort":"high","score150":100}
             ]),
             "",
@@ -458,7 +461,11 @@ mod tests {
         assert_eq!(value["source"], "https://codexradar.com/");
         assert_eq!(value["fetched_at"], "2026-11-12T03:00:00.000Z");
         assert_eq!(value["score_max"], 150);
-        assert_eq!(value["rows"].as_array().unwrap().len(), 3);
+        assert_eq!(value["rows"].as_array().unwrap().len(), 5);
+        assert_eq!(value["rows"][3]["model"], "gpt-6.2-sol");
+        assert_eq!(value["rows"][3]["score150"], 100);
+        assert_eq!(value["rows"][4]["model"], "gpt-6.2-astra");
+        assert!(value["rows"][4]["score150"].is_null());
         assert_eq!(value["rows"][0]["model"], "gpt-6.1-sol");
         assert_eq!(value["rows"][0]["effort"], "high");
         assert_eq!(value["rows"][0]["score150"], 123.4);

@@ -1,5 +1,6 @@
 mod codex_radar;
 mod orb_drag;
+mod portable_update;
 mod local_tps;
 
 use keyring::{Entry, Error as KeyringError};
@@ -762,6 +763,7 @@ pub fn run() {
             get_cached_usage,
             get_source_info,
             get_update_info,
+            portable_update::install_portable_update,
             show_main_window_command,
             set_api_key,
             set_base_url,
@@ -781,6 +783,8 @@ pub fn run() {
             minimize_main_window_command
         ])
         .setup(|app| {
+            #[cfg(windows)]
+            portable_update::cleanup_previous_executable(app.handle());
             app.manage(std::sync::Arc::new(local_tps::LocalTps::new(
                 app.path().app_config_dir().ok(), codex_home().ok(),
             )));

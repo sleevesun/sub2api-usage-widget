@@ -3,5 +3,5 @@
   "identifier": "app-updates",
   "description": "Only the main window may check for and install signed application updates",
   "windows": ["main"],
-  "permissions": ["updater:default", "process:allow-restart"]
+  "permissions": ["updater:allow-check", "process:allow-restart"]
 }

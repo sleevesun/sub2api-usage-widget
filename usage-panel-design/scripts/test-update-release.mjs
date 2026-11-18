@@ -8,14 +8,19 @@ let createUpdateManifest;
 try { ({ createUpdateManifest } = await import("./prepare-update-release.mjs")); }
 catch (error) { if (error.code !== "ERR_MODULE_NOT_FOUND") throw error; }
 assert.equal(typeof createUpdateManifest, "function", "Signed release manifest generation is not implemented");
-const input = { version: "0.3.0", tag: "v0.3.0", signature: "signed-package-content", notes: "更新说明", publishedAt: "2026-10-26T00:00:00Z" };
+const input = { version: "0.3.0", tag: "v0.3.0", signature: "signed-package-content", portableSignature: "signed-portable-content", notes: "更新说明", publishedAt: "2026-10-26T00:00:00Z" };
 const manifest = createUpdateManifest(input);
 assert.equal(manifest.version, "0.3.0");
 assert.equal(manifest.notes, "更新说明");
 assert.equal(manifest.platforms["windows-x86_64"].signature, input.signature);
 assert.equal(manifest.platforms["windows-x86_64"].url, "https://github.com/sleevesun/sub2api-usage-widget/releases/download/v0.3.0/Sub2API-Usage_0.3.0_x64-setup.exe");
+assert.deepEqual(manifest.platforms["windows-x86_64-portable"], {
+  signature: input.portableSignature,
+  url: "https://github.com/sleevesun/sub2api-usage-widget/releases/download/v0.3.0/Sub2API-Usage_0.3.0_x64-portable.exe",
+});
 assert.throws(() => createUpdateManifest({ ...input, tag: "v0.2.0" }), /tag/i);
 assert.throws(() => createUpdateManifest({ ...input, signature: "  " }), /signature/i);
+assert.throws(() => createUpdateManifest({ ...input, portableSignature: "  " }), /portable signature/i);
 assert.throws(() => createUpdateManifest({ ...input, version: "../../secret" }), /version/i);
 assert.throws(() => createUpdateManifest({ ...input, publishedAt: "not a date" }), /date/i);
 console.log("Release manifest version, tag, signed asset and fixed HTTPS download checks passed");
@@ -30,6 +35,7 @@ try {
   await writeFile(path.join(root, "src-tauri/Cargo.lock"), '[[package]]\nname = "sub2api-usage-widget"\nversion = "0.4.0"\n');
   await writeFile(path.join(root, "docs/releases/v0.4.0.md"), "正式看板\n");
   await writeFile(path.join(root, "src-tauri/target/release/sub2api-usage-widget.exe"), "portable-build-fixture");
+  await writeFile(path.join(root, "src-tauri/target/release/sub2api-usage-widget.exe.sig"), "signed-portable-fixture\n");
   const setup = path.join(root, "src-tauri/target/release/bundle/nsis/Sub2API Usage_0.4.0_x64-setup.exe");
   await writeFile(setup, "setup-build-fixture");
   await writeFile(`${setup}.sig`, "same-build-signature\n");
@@ -38,8 +44,10 @@ try {
   assert.equal(await readFile(path.join(out, "Sub2API-Usage_0.4.0_x64-setup.exe"), "utf8"), "setup-build-fixture");
   const release = JSON.parse(await readFile(path.join(out, "latest.json"), "utf8"));
   assert.equal(release.platforms["windows-x86_64"].signature, "same-build-signature");
+  assert.equal(release.platforms["windows-x86_64-portable"].signature, "signed-portable-fixture");
+  assert.equal(await readFile(path.join(out, "Sub2API-Usage_0.4.0_x64-portable.exe.sig"), "utf8"), "signed-portable-fixture\n");
   const sums = (await readFile(path.join(out, "SHA256SUMS"), "utf8")).trim().split("\n");
-  assert.equal(sums.length, 4);
+  assert.equal(sums.length, 5);
   for (const line of sums) {
     const [hash, filename] = line.split("  ");
     assert.equal(createHash("sha256").update(await readFile(path.join(out, filename))).digest("hex"), hash);

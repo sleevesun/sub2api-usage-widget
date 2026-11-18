@@ -3,12 +3,16 @@
 ## Current delivery
 
 The app is connected to the public `sleevesun/sub2api-usage-widget` repository.
-Version 0.3.0 introduced signed Tauri updates for Windows x64; v0.4.2 retains
+Version 0.3.0 introduced signed Tauri updates for Windows x64; v0.4.3 retains
 the same application identifier, signing public key and endpoint:
 `https://github.com/sleevesun/sub2api-usage-widget/releases/latest/download/latest.json`.
 The endpoint follows the latest published stable Release. v0.3.0 can check,
 download and apply the higher signed release from its existing settings panel.
-Accepting an update uses the NSIS installer even when the old copy was portable.
+Already released clients through v0.4.2 use the NSIS installer even when the old
+copy was portable. Clients with the in-place updater download the signed portable
+EXE, replace the running program at its existing path, and reopen it. The folder
+must be writable. For the first transition from an older portable client, exit it
+and manually replace its EXE with the new portable build to avoid running NSIS.
 The update source must remain publicly downloadable without
 an embedded GitHub token. A machine that cannot reach GitHub may fail to check
 or download updates; changing download hosting later needs a deliberate migration.
@@ -57,20 +61,21 @@ pnpm release:windows
 ```
 
 The build script reads the protected local signing files without printing them,
-generates the NSIS installer/signature, prepares the manifest, and verifies the
-real installer with the embedded public key. Verification also rejects a
-modified installer without executing it. Output:
+generates the installer, signs both Windows EXEs, prepares the manifest, and
+verifies both files with the embedded public key. Verification also rejects
+tampering without executing either file. Output:
 
 ```text
-release/v0.4.2/Sub2API-Usage_0.4.2_x64-portable.exe
-release/v0.4.2/Sub2API-Usage_0.4.2_x64-setup.exe
-release/v0.4.2/Sub2API-Usage_0.4.2_x64-setup.exe.sig
-release/v0.4.2/latest.json
-release/v0.4.2/SHA256SUMS
+release/vVERSION/Sub2API-Usage_VERSION_x64-portable.exe
+release/vVERSION/Sub2API-Usage_VERSION_x64-portable.exe.sig
+release/vVERSION/Sub2API-Usage_VERSION_x64-setup.exe
+release/vVERSION/Sub2API-Usage_VERSION_x64-setup.exe.sig
+release/vVERSION/latest.json
+release/vVERSION/SHA256SUMS
 ```
 
-Upload these exact five files to the matching `v0.4.2` Release. The manifest's
-installer URL includes the tag and the exact filename; renaming assets breaks
+Upload these exact six files to the matching `vVERSION` Release. Both manifest
+URLs include the tag and the exact filename; renaming assets breaks
 updates. Keep all assets from the same successful build. The portable EXE is
 copied from the executable used to generate the installer, without a second build.
 
@@ -83,7 +88,7 @@ copied from the executable used to generate the installer, without a second buil
    pushing `vVERSION` triggers the repository-root
    `.github/workflows/release-windows.yml`. Manual workflow dispatch builds
    downloadable artifacts without publishing a release.
-3. A tag build prepares a **draft** Release containing the installer, signature
+3. A tag build prepares a **draft** Release containing both EXEs, their signatures
    and `latest.json`. Check that all assets are present, the tag/version matches
    and the installer works, then explicitly publish it as a stable Release and
    make it the latest release. Drafts and prereleases are not a stable update.
@@ -95,8 +100,10 @@ copied from the executable used to generate the installer, without a second buil
    higher signed release is available. Do not test by publishing a fake version
    or downgrade to all users.
 
-The current manifest contains only `windows-x86_64`. Keep that platform asset in
-every stable release while these users depend on it. macOS and Linux update
+The manifest keeps `windows-x86_64` for old clients and adds
+`windows-x86_64-portable` for in-place updates. Keep both entries in stable releases.
+Test the portable flow from a renamed EXE in a writable directory, including
+restart at the original path and cleanup of the temporary backup. macOS and Linux update
 distribution require their own build/signing/platform entries.
 The existing macOS workflow remains available for manual artifact builds and
 does not publish or change stable Releases.

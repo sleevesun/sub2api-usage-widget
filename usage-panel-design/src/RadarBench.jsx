@@ -4,6 +4,8 @@ import { numeric, scored, keyOf, scoreText, costText, timeText, modelName, model
 import "./radarBench.css";
 import { openCodexRadarHomepage, runningInTauriSync } from "./tauriBridge.js";
 
+const MODEL_SCOPE = "GPT-6 / 6.1 / 6.2";
+
 function Matrix({ snapshot, selected, onSelect }) {
   const models = modelsInOrder(snapshot.rows);
   const columns = effortColumns(snapshot);
@@ -12,7 +14,7 @@ function Matrix({ snapshot, selected, onSelect }) {
   const bestKey = rankRows(snapshot.rows)[0] ? keyOf(rankRows(snapshot.rows)[0]) : null;
   return <>
     <div className="crp-matrix-scroll" role="region" tabIndex={0} aria-label="模型与推理强度矩阵，可横向滚动">
-      <table className="crp-matrix" style={{ "--crp-matrix-min": `${80 + columns.length * 81}px` }} aria-label="GPT-6、GPT-6.1 模型矩阵：Bench 满分150，费用美元，耗时分钟">
+      <table className="crp-matrix" style={{ "--crp-matrix-min": `${80 + columns.length * 81}px` }} aria-label={`${MODEL_SCOPE} 模型矩阵：Bench 满分150，费用美元，耗时分钟`}>
         <colgroup><col className="crp-model-col" />{columns.map((effort) => <col key={effort} />)}</colgroup>
         <thead><tr><th scope="col">模型 / 档位</th>{columns.map((effort) => <th scope="col" key={effort}>{effort.toUpperCase()}</th>)}</tr></thead>
         <tbody>{models.map((model) => {
@@ -114,10 +116,10 @@ export default function RadarBench({ bench, initialView = "matrix" }) {
     <div className="crp-toolbar"><div className="crp-views" role="tablist" aria-label="Codex Radar 视图">{[{ id: "matrix", label: "矩阵视图", icon: GridFour }, { id: "ranking", label: "排名视图", icon: ChartBar }].map((tab) => {
       const Icon = tab.icon;
       return <button type="button" role="tab" id={`crp-${scope}-${tab.id}`} aria-controls={`crp-${scope}-panel`} aria-selected={view === tab.id} key={tab.id} onClick={() => chooseView(tab.id)}><Icon size={13} />{tab.label}</button>;
-    })}</div>{view === "ranking" && <label className="crp-ranking-filter"><input type="checkbox" checked={onlyAbove90} onChange={(event) => setOnlyAbove90(event.target.checked)} /><span>智商 &gt; 90</span></label>}<div className="crp-scope"><span className="crp-count">GPT-6 / 6.1</span><span>Bench 满分 <b>150</b></span></div></div>
+    })}</div>{view === "ranking" && <label className="crp-ranking-filter"><input type="checkbox" checked={onlyAbove90} onChange={(event) => setOnlyAbove90(event.target.checked)} /><span>智商 &gt; 90</span></label>}<div className="crp-scope"><span className="crp-count">{MODEL_SCOPE}</span><span>Bench 满分 <b>150</b></span></div></div>
     {status.type === "stale" && <p className="crp-feedback" role="status">本次读取失败，暂用 {dateText(snapshot.fetched_at)} 获取的整轮缓存。</p>}
     <div role="tabpanel" id={`crp-${scope}-panel`} aria-labelledby={`crp-${scope}-${view}`}>
-      {!snapshot ? <div className="crp-empty"><strong>{loading ? "正在读取官网评测数据…" : "暂时无法读取官网数据"}</strong><p>{loading ? "分数、费用和耗时将同步更新" : bench.error || "尚无可用缓存，请稍后刷新"}</p>{!loading && <button type="button" onClick={() => { void bench.refresh(); }}>重新读取</button>}</div> : !snapshot.rows.length ? <div className="crp-empty">本轮暂无 GPT-6 / 6.1 系列数据</div> : view === "matrix" ? <Matrix snapshot={snapshot} selected={activeKey} onSelect={setSelected} /> : <Rankings rows={rankingRows} onlyAbove90={onlyAbove90} selected={activeKey} onSelect={setSelected} />}
+      {!snapshot ? <div className="crp-empty"><strong>{loading ? "正在读取官网评测数据…" : "暂时无法读取官网数据"}</strong><p>{loading ? "分数、费用和耗时将同步更新" : bench.error || "尚无可用缓存，请稍后刷新"}</p>{!loading && <button type="button" onClick={() => { void bench.refresh(); }}>重新读取</button>}</div> : !snapshot.rows.length ? <div className="crp-empty">本轮暂无 {MODEL_SCOPE} 系列数据</div> : view === "matrix" ? <Matrix snapshot={snapshot} selected={activeKey} onSelect={setSelected} /> : <Rankings rows={rankingRows} onlyAbove90={onlyAbove90} selected={activeKey} onSelect={setSelected} />}
     </div>
     <Selection row={row} />
     <footer className="crp-source"><p>“智商”仅为 Bench 得分的通俗叫法，并非人类 IQ。</p><div><span>{row?.cost_kind === "api_equivalent_estimate" ? "API 等价估算费用" : "官网估算费用"} · 模型执行耗时</span><span>{numeric(snapshot?.metadata?.graded) && numeric(snapshot?.metadata?.expected) ? `判分 ${snapshot.metadata.graded}/${snapshot.metadata.expected}` : "官网未提供判分进度"}</span></div></footer>

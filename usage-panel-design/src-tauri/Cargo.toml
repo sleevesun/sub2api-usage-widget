@@ -1,6 +1,6 @@
 [package]
 name = "sub2api-usage-widget"
-version = "0.4.2"
+version = "0.4.3"
 description = "A lightweight Sub2API usage tray widget"
 authors = ["Sub2API Usage Widget"]
 edition = "2021"
@@ -36,7 +36,8 @@ toml = "0.8"
 toml_edit = "=0.20.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
+tempfile = "3"
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
 
 [dev-dependencies]
 base64 = "0.22"

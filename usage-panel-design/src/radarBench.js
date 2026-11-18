@@ -1,5 +1,5 @@
 export const RADAR_EFFORTS = ["ultra", "max", "xhigh", "high", "medium", "low"];
-const targetModel = /^gpt-6(?:\.1)?(?:-|$)/i;
+const targetModel = /^gpt-6(?:\.[12])?(?:-|$)/i;
 export const numeric = (value) => typeof value === "number" && Number.isFinite(value);
 const measurement = (value) => numeric(value) && value >= 0 ? value : null;
 export const scored = (row) => numeric(row?.score150) && row.score150 >= 0;

@@ -100,20 +100,20 @@ Installers are written under `src-tauri/target/release/bundle/`.
 The generated NSIS installer is:
 
 ```text
-release/v0.4.2/Sub2API-Usage_0.4.2_x64-setup.exe
+release/v0.4.3/Sub2API-Usage_0.4.3_x64-setup.exe
 ```
 
 The portable executable is:
 
 ```text
-release/v0.4.2/Sub2API-Usage_0.4.2_x64-portable.exe
+release/v0.4.3/Sub2API-Usage_0.4.3_x64-portable.exe
 ```
 
-The portable EXE runs directly without an installer. The same release includes
-a signed NSIS installer for the existing in-app updater. Accepting an in-app
-update uses this installer and may migrate a portable copy into an installed
-copy; use the updated shortcut afterwards rather than reopening an archived EXE.
-`SHA256SUMS` covers the portable EXE, installer, signature and update manifest.
+The portable EXE runs directly without an installer. Clients with the in-place
+updater verify the portable EXE and replace the current file at its existing path.
+The release also includes a signed NSIS installer for older clients. See
+[Windows updates](docs/windows-updates.md) for the first transition from an older
+portable client. `SHA256SUMS` covers both EXEs, both signatures and the manifest.
 
 The previous portable build remains available for rollback:
 
@@ -154,9 +154,9 @@ https://github.com/sleevesun/sub2api-usage-widget/releases/latest/download/lates
 ```
 
 The app uses the official Tauri updater, HTTPS and an embedded public key.
-The signed NSIS installer uses the current user's installation scope, and the
-updater runs it in passive mode. The application identifier and credential
-storage remain unchanged. Installation exits the app and restarts it afterwards.
+In-place updates require a writable program folder and reopen the EXE at the
+same path. The compatibility installer for old clients uses the current user's
+installation scope. The application identifier and credential storage remain unchanged.
 Save pending settings before accepting the update.
 
 Release setup and publication instructions: [docs/windows-updates.md](docs/windows-updates.md).

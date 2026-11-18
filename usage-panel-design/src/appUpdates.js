@@ -63,10 +63,10 @@ export function createAppUpdater({ getInfo, check, restart }) {
         installed = true;
         publish({ status: "restarting" });
         await restart();
-      } catch {
+      } catch (error) {
         publish({ status: "error", errorKind: installed ? "restart" : "install", canInstall: !installed, error: installed
           ? "更新已安装，请退出应用后重新打开。"
-          : "更新未完成，请检查网络后重试；当前版本仍可使用。" });
+          : typeof error === "string" ? error : "更新未完成，请检查网络后重试；当前版本仍可使用。" });
       }
     })();
     try { await operation; } finally { operation = null; }

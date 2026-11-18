@@ -9,11 +9,13 @@ const input = snapshot([
  row("gpt-6.1-sol", "low", 90.00001), row("gpt-6.1-terra", "medium", 95),
  row("gpt-6-luna", "experimental", 30), row("gpt-5.6-sol", "max", 149),
  row("gpt-6.10-sol", "max", 149), row("gpt-60-sol", "max", 149),
+ row(" GPT-6.2-ASTRA ", "MAX", 89), row("gpt-6.2-sol", "max", 92),
+ row("gpt-6.20-sol", "max", 149), row("gpt-6.2.1-sol", "max", 149),
  row("GPT-6-FUTURE", "HIGH", 91), row("gpt-6-sol", "low", -1),
 ], {unsupported: [{model: "gpt-6-luna", effort: "ultra"}], metadata: {round_id: "synthetic-round"}});
 const data = normalizeRadarSnapshot(input);
-assert.equal(data.rows.length, 7);
-assert.deepEqual(modelsInOrder(data.rows), ["gpt-6.1-terra", "gpt-6.1-sol", "gpt-6-astra", "gpt-6-future", "gpt-6-luna", "gpt-6-sol"]);
+assert.equal(data.rows.length, 9);
+assert.deepEqual(modelsInOrder(data.rows), ["gpt-6.2-sol", "gpt-6.2-astra", "gpt-6.1-terra", "gpt-6.1-sol", "gpt-6-astra", "gpt-6-future", "gpt-6-luna", "gpt-6-sol"]);
 assert.equal(data.rows.find(r => r.model === "gpt-6.1-terra" && r.effort === "max").score150, null);
 assert.equal(data.rows.find(r => r.model === "gpt-6-sol").score150, null);
 assert.deepEqual(data.unsupported, [{model:"gpt-6-luna",effort:"ultra"}]);
