@@ -34,11 +34,12 @@ function MatrixControls({ columns, order, onOrder, mode, onMode, heatmap }) {
 function Matrix({ snapshot, selected, onSelect, order, onOrder, mode, onMode }) {
   const columns = effortColumns(snapshot);
   const activeOrder = order.startsWith("effort:") && !columns.includes(order.slice(7)) ? "best" : order;
-  const models = matrixModels(snapshot.rows, activeOrder);
-  const heatmap = scoreHeatmap(snapshot.rows, mode);
-  const cells = new Map(snapshot.rows.map((row) => [keyOf(row), row]));
   const unsupported = new Set((snapshot.unsupported || []).map(keyOf));
-  const [best] = rankRows(snapshot.rows, "score", { limit: 1 });
+  const rows = snapshot.rows.map((row) => unsupported.has(keyOf(row)) ? { model: row.model, effort: row.effort } : row);
+  const models = matrixModels(rows, activeOrder);
+  const heatmap = scoreHeatmap(rows, mode);
+  const cells = new Map(rows.map((row) => [keyOf(row), row]));
+  const [best] = rankRows(rows, "score", { limit: 1 });
   const bestKey = best ? keyOf(best) : null;
   return <>
     <MatrixControls columns={columns} order={activeOrder} onOrder={onOrder} mode={mode} onMode={onMode} heatmap={heatmap} />
@@ -52,7 +53,7 @@ function Matrix({ snapshot, selected, onSelect, order, onOrder, mode, onMode }) 
             <th scope="row"><strong>{parts.name}</strong><span>{parts.generation}</span></th>
             {columns.map((effort) => {
               const key = `${model}/${effort}`, row = cells.get(key), valid = scored(row);
-              if (!row && unsupported.has(key)) return <td key={key}><div className="crp-unsupported" aria-label={`${modelName(model)} ${effort}：无此档位`}><span>—</span><small>无此档位</small></div></td>;
+              if (unsupported.has(key)) return <td key={key}><div className="crp-unsupported" aria-label={`${modelName(model)} ${effort}：无此档位`}><span>—</span><small>无此档位</small></div></td>;
               const description = `${modelName(model)} ${effort}，${valid ? `Bench ${scoreText(row.score150)} / 150` : "未测或结果未知"}，估算费用 ${costText(row?.cost_usd)}，耗时 ${timeText(row)}`;
               return <td key={key}><button className={`crp-cell${valid ? "" : " is-ungraded"}`} type="button" data-cell={key} data-heat={heatmap.level(row?.score150)} aria-label={description} title={description} aria-pressed={selected === key} onClick={() => onSelect(row || { model, effort })}>
                 <span className="crp-cell-score"><strong>{valid ? scoreText(row.score150) : "待评分"}</strong>{key === bestKey && <i aria-label="本轮最高分" />}</span>

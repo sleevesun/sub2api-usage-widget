@@ -15,7 +15,7 @@ const server=await createServer({server:{middlewareMode:true,watch:null,hmr:fals
 try {
  const {default:RadarBench}=await server.ssrLoadModule("/src/RadarBench.jsx");
  const render=(props={})=>renderToStaticMarkup(createElement(RadarBench,{bench,...props}));
- const matrix=render();
+ const matrix=render({bench:{...bench,snapshot:{...snapshot,rows:[...snapshot.rows,{model:"gpt-6-luna",effort:"ultra",score150:150,cost_usd:1,model_elapsed_seconds:60}]}}});
  for(const text of ["Codex Radar","矩阵视图","排名视图","121.25","$2.00","2.0 分钟","待评分","无此档位","并非人类 IQ","官网未提供判分进度","10:41"]) assert.ok(matrix.includes(text),text);
  assert.match(matrix,/aria-selected="true"[^>]*>.*?矩阵视图/);
  assert.ok(!matrix.includes("gpt-5.6")&&!matrix.includes("原型"));
@@ -25,6 +25,7 @@ try {
  assert.match(matrix, /<tbody><tr><th scope="row"><strong>Terra<\/strong>/);
  assert.doesNotMatch(matrix, /data-cell="gpt-6-astra\/max" data-heat=/);
  assert.doesNotMatch(matrix, /class="crp-unsupported"[^>]*data-heat=/);
+ assert.ok(!matrix.includes('data-cell="gpt-6-luna/ultra"') && !matrix.includes("150.00"), "Explicitly unsupported combinations cannot color, sort or become the matrix selection");
  const ranking=render({initialView:"ranking"});
  assert.ok(!ranking.includes("固定量尺"));
  for(const text of ["纯智商榜","性价比榜","效率榜","智商 &gt; 90","checked"]) assert.ok(ranking.includes(text),text);

@@ -82,14 +82,22 @@ export function scoreHeatmap(rows, mode = "fixed") {
   const min = relative ? Math.min(...scores) : 0;
   const max = relative ? Math.max(...scores) : 150;
   const stops = relative ? Array.from({ length: 6 }, (_, i) => min + (max - min) * (i / 5)) : [0, 60, 90, 110, 130, 150];
-  const label = (value) => value.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+  const format = (digits) => new Intl.NumberFormat("zh-CN", { maximumFractionDigits: digits }).format;
+  let label = format(2);
+  if (relative && max > min) {
+    const distinct = [...new Set(stops)];
+    for (let digits = 3; new Set(distinct.map(label)).size < distinct.length; digits++) {
+      if (digits > 12) { label = String; break; }
+      label = format(digits);
+    }
+  }
   return {
     min: label(min), max: label(max),
     level: (score) => measurement(score) === null ? undefined
       : min === max ? 2 : Math.max(0, Math.min(4, stops.findLastIndex((stop) => score >= stop))),
     bands: min === max ? [{ level: 2, label: `${label(min)} 分` }]
       : stops.slice(0, -1).map((stop, i) => ({
-        level: i, label: `${label(stop)} – ${i === 4 ? "" : "< "}${label(stops[i + 1])} 分`,
+        level: i, label: !relative && i === 4 ? `≥ ${label(stop)} 分` : `${label(stop)} – ${i === 4 ? "" : "< "}${label(stops[i + 1])} 分`,
       })),
   };
 }
@@ -105,11 +113,12 @@ export function rankRows(rows, type = "score", { onlyAbove90 = false, limit = 5 
 }
 
 export function resolveRadarSelection(snapshot, selected, rankingRows = null) {
-  const candidates = rankingRows || snapshot?.rows || [];
+  const unsupported = new Set(snapshot?.unsupported?.map(keyOf));
+  const candidates = rankingRows || (snapshot?.rows || []).filter((item) => !unsupported.has(keyOf(item)));
   const current = selected && candidates.find((item) => keyOf(item) === keyOf(selected));
   if (current) return current;
   if (!rankingRows && selected && snapshot?.rows.some((item) => item.model === selected.model)
-    && effortColumns(snapshot).includes(selected.effort) && !snapshot.unsupported.some((item) => keyOf(item) === keyOf(selected))) {
+    && effortColumns(snapshot).includes(selected.effort) && !unsupported.has(keyOf(selected))) {
     return { model: selected.model, effort: selected.effort };
   }
   return rankRows(candidates)[0] || null;

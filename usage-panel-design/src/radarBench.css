@@ -12,7 +12,7 @@
 .crp [data-heat="0"] { --rh-fill: var(--rh-0); }
 .crp [data-heat="1"] { --rh-fill: var(--rh-1); }
 .crp [data-heat="2"] { --rh-fill: var(--rh-2); }
-.crp [data-heat="3"] { --rh-fill: var(--rh-3); }
+.crp [data-heat="3"] { --rh-fill: var(--rh-3); --rh-meta: var(--rh-ink); }
 .crp [data-heat="4"] { --rh-fill: var(--rh-4); --rh-ink: #fff; --rh-meta: #fff; --rh-track: #ffffff40; }
 .crp .crp-cell[data-heat] { background: var(--rh-fill); }
 .crp .crp-cell[data-heat]:hover { border-color: var(--rh-ink); }
